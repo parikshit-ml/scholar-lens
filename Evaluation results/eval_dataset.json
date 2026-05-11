@@ -1,0 +1,142 @@
+[
+  {
+    "question": "What problem does the paper aim to solve?",
+    "expected_answer": "The paper addresses the challenge of deploying large language models on resource-constrained devices by reducing model size, latency, and memory while preserving domain-specific knowledge using retrieval-guided compression.",
+    "expected_pages": [
+      1
+    ]
+  },
+  {
+    "question": "Why are large language models difficult to deploy on edge devices?",
+    "expected_answer": "LLMs require high memory, computational resources, and have slow inference, making them unsuitable for real-time and on-device environments without compression.",
+    "expected_pages": [
+      1
+    ]
+  },
+  {
+    "question": "What is the main idea behind knowledge-guided compression?",
+    "expected_answer": "It involves distilling a smaller student model from a larger teacher while incorporating external domain knowledge through retrieval to preserve reasoning and technical understanding.",
+    "expected_pages": [
+      1
+    ]
+  },
+  {
+    "question": "What is the role of retrieval in this framework?",
+    "expected_answer": "Retrieval provides domain-specific context from a vector database during training, helping the student model learn structured knowledge instead of only mimicking outputs.",
+    "expected_pages": [
+      1
+    ]
+  },
+  {
+    "question": "What are the key contributions of the paper?",
+    "expected_answer": "The work introduces a retrieval-guided distillation framework, integrates RAG during training instead of inference, and demonstrates improved knowledge retention with reduced model size.",
+    "expected_pages": [
+      2
+    ]
+  },
+  {
+    "question": "What is knowledge distillation in this context?",
+    "expected_answer": "Knowledge distillation is the process of training a smaller student model to imitate the outputs and behavior of a larger teacher model to reduce computational complexity.",
+    "expected_pages": [
+      2
+    ]
+  },
+  {
+    "question": "What limitation does traditional knowledge distillation have?",
+    "expected_answer": "It often loses domain-specific and structured knowledge when models are aggressively compressed, especially in technical domains like signal processing.",
+    "expected_pages": [
+      2
+    ]
+  },
+  {
+    "question": "What is Retrieval-Augmented Generation (RAG)?",
+    "expected_answer": "RAG is a technique that enhances language models by retrieving relevant external information from a knowledge base to improve factual grounding and reduce hallucinations.",
+    "expected_pages": [
+      2
+    ]
+  },
+  {
+    "question": "Why is RAG usually insufficient when used only at inference time?",
+    "expected_answer": "Because it provides temporary access to knowledge without embedding it into the model, leading to shallow understanding in compressed models.",
+    "expected_pages": [
+      3
+    ]
+  },
+  {
+    "question": "What gap in existing research does this paper address?",
+    "expected_answer": "The lack of integrating retrieval-based knowledge directly into the distillation process to improve domain knowledge retention in compressed models.",
+    "expected_pages": [
+      3
+    ]
+  },
+  {
+    "question": "Describe the architecture of the proposed system.",
+    "expected_answer": "The system consists of a teacher LLM, a student LLM, a retrieval module with a vector database, and a distillation pipeline where retrieved knowledge is injected during training.",
+    "expected_pages": [
+      4
+    ]
+  },
+  {
+    "question": "How is the knowledge corpus prepared?",
+    "expected_answer": "Documents are collected, cleaned, segmented into chunks, embedded into vectors, and stored in a similarity-based retrieval system.",
+    "expected_pages": [
+      4
+    ]
+  },
+  {
+    "question": "How does the retrieval function select relevant documents?",
+    "expected_answer": "It uses cosine similarity between query embeddings and document embeddings to retrieve top-k most relevant chunks.",
+    "expected_pages": [
+      4
+    ]
+  },
+  {
+    "question": "What is the purpose of augmenting the teacher input?",
+    "expected_answer": "To provide additional domain context so that the teacher generates richer outputs, which improves the quality of supervision during distillation.",
+    "expected_pages": [
+      4
+    ]
+  },
+  {
+    "question": "What loss functions are used during distillation?",
+    "expected_answer": "The model uses a combination of Kullback-Leibler divergence for matching distributions and cross-entropy loss for token-level accuracy.",
+    "expected_pages": [
+      4
+    ]
+  },
+  {
+    "question": "What is the final training objective of the model?",
+    "expected_answer": "The objective is a weighted combination of KL divergence loss and cross-entropy loss to balance imitation of teacher behavior and factual correctness.",
+    "expected_pages": [
+      4
+    ]
+  },
+  {
+    "question": "How does quantization help in deployment?",
+    "expected_answer": "Quantization reduces model precision and memory footprint, enabling efficient execution on CPUs, mobile devices, and edge hardware.",
+    "expected_pages": [
+      4
+    ]
+  },
+  {
+    "question": "What performance improvement does RAG-assisted distillation provide?",
+    "expected_answer": "It significantly improves domain knowledge retention compared to standard distillation, achieving performance close to the teacher model despite reduced size.",
+    "expected_pages": [
+      5
+    ]
+  },
+  {
+    "question": "How does the proposed model perform in terms of latency?",
+    "expected_answer": "The compressed student model achieves around 3 to 4 times faster inference compared to the teacher model.",
+    "expected_pages": [
+      6
+    ]
+  },
+  {
+    "question": "What is the key advantage of using retrieval during training instead of inference?",
+    "expected_answer": "It enables the student model to internalize domain knowledge into its parameters, reducing reliance on external retrieval at runtime.",
+    "expected_pages": [
+      6
+    ]
+  }
+]
