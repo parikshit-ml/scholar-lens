@@ -4,45 +4,55 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Gemini-inspired dark theme as default */
-  --background: oklch(0.13 0.005 260);
-  --foreground: oklch(0.93 0.005 260);
-  --card: oklch(0.17 0.006 260);
-  --card-foreground: oklch(0.93 0.005 260);
-  --popover: oklch(0.17 0.006 260);
-  --popover-foreground: oklch(0.93 0.005 260);
-  --primary: oklch(0.72 0.18 255);
-  --primary-foreground: oklch(0.13 0.005 260);
-  --secondary: oklch(0.21 0.008 260);
-  --secondary-foreground: oklch(0.85 0.005 260);
-  --muted: oklch(0.21 0.008 260);
-  --muted-foreground: oklch(0.58 0.01 260);
-  --accent: oklch(0.72 0.18 255);
-  --accent-foreground: oklch(0.13 0.005 260);
-  --destructive: oklch(0.6 0.22 25);
+  /* ScholarLens — Cream Editorial (light, warm, scholarly) */
+  /* Surfaces: warm paper tones, not stark white */
+  --background: oklch(0.96 0.012 85);        /* #F6F1E7 page — warm cream */
+  --foreground: oklch(0.26 0.012 75);        /* #2C2820 ink text */
+  --card: oklch(0.99 0.004 85);              /* near-white card on cream */
+  --card-foreground: oklch(0.26 0.012 75);
+  --popover: oklch(0.99 0.004 85);
+  --popover-foreground: oklch(0.26 0.012 75);
+
+  /* Accent: deep teal — the single loud color */
+  --primary: oklch(0.48 0.09 175);           /* #0F6E56 teal */
+  --primary-foreground: oklch(0.97 0.01 175);
+  --secondary: oklch(0.93 0.012 85);         /* warm panel */
+  --secondary-foreground: oklch(0.30 0.012 75);
+  --muted: oklch(0.93 0.012 85);
+  --muted-foreground: oklch(0.50 0.012 75);  /* readable muted on cream */
+  --accent: oklch(0.48 0.09 175);
+  --accent-foreground: oklch(0.97 0.01 175);
+  --destructive: oklch(0.55 0.20 28);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0.008 260);
-  --input: oklch(0.21 0.008 260);
-  --ring: oklch(0.72 0.18 255);
-  --surface: oklch(0.17 0.006 260);
-  --surface-hover: oklch(0.22 0.008 260);
-  --gem-blue: oklch(0.65 0.2 255);
-  --gem-teal: oklch(0.72 0.14 185);
-  --gem-text: oklch(0.88 0.005 260);
-  --gem-subtext: oklch(0.58 0.01 260);
-  --radius: 1rem;
-  --sidebar: oklch(0.17 0.006 260);
-  --sidebar-foreground: oklch(0.93 0.005 260);
-  --sidebar-primary: oklch(0.72 0.18 255);
-  --sidebar-primary-foreground: oklch(0.13 0.005 260);
-  --sidebar-accent: oklch(0.21 0.008 260);
-  --sidebar-accent-foreground: oklch(0.93 0.005 260);
-  --sidebar-border: oklch(0.25 0.008 260);
-  --sidebar-ring: oklch(0.72 0.18 255);
+
+  --border: oklch(0.88 0.012 82);            /* soft warm borders */
+  --input: oklch(0.93 0.012 85);
+  --ring: oklch(0.48 0.09 175);
+
+  --surface: oklch(0.99 0.004 85);
+  --surface-hover: oklch(0.94 0.012 85);
+
+  /* Named accent hooks repointed to the new family */
+  --gem-blue: oklch(0.48 0.09 175);          /* teal (was blue) */
+  --gem-teal: oklch(0.55 0.08 175);          /* lighter teal */
+  --gem-text: oklch(0.26 0.012 75);
+  --gem-subtext: oklch(0.50 0.012 75);
+
+  --radius: 0.875rem;                         /* slightly tighter than 1rem reads more editorial */
+
+  --sidebar: oklch(0.94 0.012 85);
+  --sidebar-foreground: oklch(0.26 0.012 75);
+  --sidebar-primary: oklch(0.48 0.09 175);
+  --sidebar-primary-foreground: oklch(0.97 0.01 175);
+  --sidebar-accent: oklch(0.93 0.012 85);
+  --sidebar-accent-foreground: oklch(0.26 0.012 75);
+  --sidebar-border: oklch(0.88 0.012 82);
+  --sidebar-ring: oklch(0.48 0.09 175);
 }
 
 @theme inline {
-  --font-sans: 'Google Sans', 'Geist', sans-serif;
+  --font-sans: 'Inter', 'Geist', system-ui, sans-serif;
+  --font-serif: 'Spectral', 'Newsreader', Georgia, serif;
   --font-mono: 'Geist Mono', monospace;
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
@@ -94,5 +104,6 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "liga" 1, "calt" 1;
   }
 }

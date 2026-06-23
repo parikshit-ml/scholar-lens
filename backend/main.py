@@ -11,8 +11,10 @@ import numpy as np
 from PyPDF2 import PdfReader
 from openai import AsyncOpenAI
 import os, re, hashlib, time, json
+from dotenv import load_dotenv
 from typing import Optional
 
+load_dotenv()
 app = FastAPI()
 
 print("Loading models…")

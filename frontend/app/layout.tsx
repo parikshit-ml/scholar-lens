@@ -1,16 +1,31 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist_Mono, Inter, Spectral } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+})
+
+const spectral = Spectral({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  style: ['normal', 'italic'],
+  variable: '--font-serif',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+})
 
 export const metadata: Metadata = {
   title: 'ScholarLens',
-  description: 'AI-powered academic document intelligence — hybrid RAG with semantic search, cross-encoder reranking, and citation-grounded answers.',
+  description:
+    'AI-powered academic document intelligence — hybrid RAG with semantic search, cross-encoder reranking, and citation-grounded answers.',
   generator: 'ScholarLens',
-  themeColor: '#0B0F14',
+  themeColor: '#F6F1E7',
 }
 
 export default function RootLayout({
@@ -20,7 +35,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="bg-background">
-      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body
+        className={`${inter.variable} ${spectral.variable} ${geistMono.variable} font-sans antialiased`}
+      >
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

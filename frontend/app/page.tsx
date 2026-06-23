@@ -1,321 +1,275 @@
 "use client"
 
-import { useState } from "react"
-import { LeftPanel } from "@/components/left-panel"
-import { MiddlePanel } from "@/components/middle-panel"
-import { RightPanel } from "@/components/right-panel"
+import { useRef, useEffect, useState } from "react"
+import Link from "next/link"
+import { motion, useScroll, useTransform, useInView, animate } from "framer-motion"
 
-export type PaperDocument = {
-  id: string
-  name: string
-  size: string
-  chunks: number
-  uploadedAt: Date
-  active: boolean
-  file?: File
-  objectUrl?: string
+const ink = "#0A0A0F"
+const ink2 = "#101018"
+const teal = "#2DD4A7"
+const text = "#ECE8DF"
+const muted = "#8A8678"
+const line = "rgba(255,255,255,0.08)"
+const serif = "var(--font-serif)"
+const sans = "var(--font-sans)"
+const mono = "var(--font-mono)"
+
+function useCountUp(target: number, decimals = 0) {
+  const [val, setVal] = useState(0)
+  const ref = useRef(null)
+  const inView = useInView(ref, { once: true, margin: "-80px" })
+  useEffect(() => {
+    if (!inView) return
+    const controls = animate(0, target, { duration: 1.4, ease: [0.2, 0.7, 0.2, 1], onUpdate: v => setVal(v) })
+    return () => controls.stop()
+  }, [inView, target])
+  return { ref, display: decimals ? val.toFixed(decimals) : Math.round(val).toString() }
 }
 
-export type QueryHistory = {
-  id: string
-  query: string
-  timestamp: Date
+function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.9, delay, ease: [0.2, 0.7, 0.2, 1] }}>
+      {children}
+    </motion.div>
+  )
 }
 
-export type Source = {
-  page: number
-  snippet: string
-  relevance: number
-}
-
-export type Message = {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  sources?: Source[]
-  sourcesA?: Source[]
-  sourcesB?: Source[]
-  confidence?: "high" | "medium" | "low"
-  isComparison?: boolean
-  confidenceReason?: string
-  retrievalMs?: number
-  rerankMs?: number
-  chunksUsed?: number
-  cached?: boolean
-  originalQuestion?: string
-  isDecomposition?: boolean
-  decomposition?: DecompositionData
-  timestamp: Date
-}
-
-export type DecompositionData = {
-  contributions: string
-  methodology: string
-  limitations: string
-  assumptions: string
-  contributionsSources: Source[]
-  methodologySources: Source[]
-  limitationsSources: Source[]
-  assumptionsSources: Source[]
-}
-
-export type RagSettings = {
-  k: number
-  answerStyle: "concise" | "detailed" | "bullet"
-  temperature: number
-}
-
-async function callAsk(question: string, docId: string, settings: RagSettings): Promise<{ answer: string; sources?: any[]; confidence?: string; confidence_reason?: string; retrieval_ms?: number; rerank_ms?: number; chunks_used?: number; cached?: boolean }> {
-  const res = await fetch("http://localhost:8005/ask", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, doc_id: docId, k: settings.k, answer_style: settings.answerStyle, temperature: settings.temperature }),
-  })
-  if (!res.ok) throw new Error(`Server error: ${res.status}`)
-  return res.json()
-}
-
-async function callCompare(question: string, docIdA: string, docIdB: string, settings: RagSettings): Promise<{ answer: string; sources_a?: any[]; sources_b?: any[]; confidence?: string }> {
-  const res = await fetch("http://localhost:8005/compare", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, doc_id_a: docIdA, doc_id_b: docIdB, k: settings.k, answer_style: settings.answerStyle, temperature: settings.temperature }),
-  })
-  if (!res.ok) throw new Error(`Compare error: ${res.status}`)
-  return res.json()
-}
-
-async function callUpload(file: File, docId: string): Promise<{ chunks: number }> {
-  const formData = new FormData()
-  formData.append("file", file)
-  formData.append("doc_id", docId)
-  const res = await fetch("http://localhost:8005/upload", { method: "POST", body: formData })
-  if (!res.ok) throw new Error("Upload failed")
-  return res.json()
-}
-
-function toSources(arr: any[]): Source[] {
-  return (arr ?? []).map((s: any, i: number) => ({
-    page: s.page ?? (s.chunk_id ?? i) + 1,
-    snippet: (s.text ?? "").slice(0, 200),
-    relevance: s.reranker_score ?? parseFloat((0.94 - i * 0.07).toFixed(2)),
-    ...(s.tier && { tier: s.tier }),
-    ...(s.reranker_score !== undefined && { reranker_score: s.reranker_score }),
-  }))
-}
-
-export default function Page() {
-  const [documents, setDocuments] = useState<PaperDocument[]>([])
-  const [activeDoc, setActiveDoc] = useState<PaperDocument | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [queryHistory, setQueryHistory] = useState<QueryHistory[]>([])
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [isThinking, setIsThinking] = useState(false)
-  const [thinkingStage, setThinkingStage] = useState("")
-  const [evidenceSources, setEvidenceSources] = useState<Source[]>([])
-  const [highlightPage, setHighlightPage] = useState<number | null>(null)
-  const [ragSettings, setRagSettings] = useState<RagSettings>({ k: 8, answerStyle: "detailed", temperature: 0.3 })
-  const [compareMode, setCompareMode] = useState(false)
-  const [compareDocA, setCompareDocA] = useState<PaperDocument | null>(null)
-  const [compareDocB, setCompareDocB] = useState<PaperDocument | null>(null)
-  const [hoveredSourcePage, setHoveredSourcePage] = useState<number | null>(null)
-
-  const handleUpload = async (file: File) => {
-    setIsUploading(true); setUploadProgress(0)
-    const docId = `doc-${Date.now()}`
-    const iv = setInterval(() => setUploadProgress(p => p >= 85 ? p : p + 11), 160)
-    try {
-      const result = await callUpload(file, docId)
-      clearInterval(iv); setUploadProgress(100)
-      const objectUrl = URL.createObjectURL(file)
-      const doc: PaperDocument = {
-        id: docId, name: file.name.replace(".pdf", ""),
-        size: `${(file.size / 1024).toFixed(0)} KB`,
-        chunks: result.chunks, uploadedAt: new Date(), active: true, file, objectUrl,
-      }
-      setDocuments(prev => prev.map(d => ({ ...d, active: false })).concat(doc))
-      setActiveDoc(doc)
-      setMessages([{ id: `sys-${Date.now()}`, role: "assistant", content: `**${doc.name}** indexed successfully.\n\n${result.chunks} passages extracted and ready for semantic retrieval. Ask anything about this document.`, timestamp: new Date() }])
-      setEvidenceSources([]); setHighlightPage(null)
-    } catch { clearInterval(iv) }
-    finally { setTimeout(() => { setIsUploading(false); setUploadProgress(0) }, 700) }
-  }
-
-  const handleSend = async (text: string) => {
-    if (compareMode) { await handleCompare(text); return }
-    if (!activeDoc) return
-    setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: "user", content: text, timestamp: new Date() }])
-    setQueryHistory(prev => [{ id: `q-${Date.now()}`, query: text, timestamp: new Date() }, ...prev.slice(0, 9)])
-    setIsThinking(true); setThinkingStage("Searching relevant sections…")
-    const t1 = setTimeout(() => setThinkingStage("Ranking passages by relevance…"), 800)
-    const t2 = setTimeout(() => setThinkingStage("Synthesizing answer…"), 1700)
-    try {
-      const data = await callAsk(text, activeDoc.id, ragSettings)
-      const sources = toSources(data.sources ?? [])
-      setEvidenceSources(sources)
-      const confidence: "high" | "medium" | "low" = (data.confidence as any) ?? (sources.length >= 3 ? "high" : sources.length >= 1 ? "medium" : "low")
-      setMessages(prev => [...prev, {
-        id: `a-${Date.now()}`, role: "assistant",
-        content: data.answer ?? "No answer.",
-        sources, confidence,
-        confidenceReason: data.confidence_reason ?? "",
-        retrievalMs: data.retrieval_ms ?? 0,
-        rerankMs: data.rerank_ms ?? 0,
-        chunksUsed: data.chunks_used ?? sources.length,
-        cached: data.cached ?? false,
-        originalQuestion: text,
-        timestamp: new Date()
-      }])
-    } catch {
-      setMessages(prev => [...prev, { id: `e-${Date.now()}`, role: "assistant", content: "Failed to retrieve answer. Ensure the backend is running on port 8005.", timestamp: new Date() }])
-    } finally { clearTimeout(t1); clearTimeout(t2); setIsThinking(false); setThinkingStage("") }
-  }
-
-  const handleCompare = async (text: string) => {
-    if (!compareDocA || !compareDocB) return
-    setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: "user", content: text, timestamp: new Date() }])
-    setQueryHistory(prev => [{ id: `q-${Date.now()}`, query: text, timestamp: new Date() }, ...prev.slice(0, 9)])
-    setIsThinking(true); setThinkingStage("Searching Document A…")
-    const t1 = setTimeout(() => setThinkingStage("Searching Document B…"), 700)
-    const t2 = setTimeout(() => setThinkingStage("Comparing and synthesizing…"), 1500)
-    try {
-      const data = await callCompare(text, compareDocA.id, compareDocB.id, ragSettings)
-      setMessages(prev => [...prev, {
-        id: `cmp-${Date.now()}`, role: "assistant",
-        content: data.answer ?? "No comparison returned.",
-        sourcesA: toSources(data.sources_a ?? []),
-        sourcesB: toSources(data.sources_b ?? []),
-        isComparison: true,
-        confidence: (data.confidence as any) ?? "medium",
-        timestamp: new Date(),
-      }])
-    } catch {
-      setMessages(prev => [...prev, { id: `e-${Date.now()}`, role: "assistant", content: "Comparison failed. Ensure both documents are indexed.", timestamp: new Date() }])
-    } finally { clearTimeout(t1); clearTimeout(t2); setIsThinking(false); setThinkingStage("") }
-  }
-
-  const handleDecompose = async () => {
-    if (!activeDoc || isThinking) return
-    setIsThinking(true)
-    setThinkingStage("Decomposing paper structure…")
-    const queries = {
-      contributions: "What are the main contributions and novel ideas introduced in this paper?",
-      methodology: "What methodology, methods, techniques, and system architecture are used in this paper?",
-      limitations: "What are the limitations, weaknesses, or future work mentioned in this paper?",
-      assumptions: "What assumptions does this paper make about the problem, data, or environment?",
-    }
-    const conciseSettings: RagSettings = { ...ragSettings, answerStyle: "bullet", k: 6 }
-    try {
-      const [contribData, methodData, limData, assumeData] = await Promise.all([
-        callAsk(queries.contributions, activeDoc.id, conciseSettings),
-        callAsk(queries.methodology, activeDoc.id, conciseSettings),
-        callAsk(queries.limitations, activeDoc.id, conciseSettings),
-        callAsk(queries.assumptions, activeDoc.id, conciseSettings),
-      ])
-      const decomposition: DecompositionData = {
-        contributions: contribData.answer ?? "Not found.",
-        methodology: methodData.answer ?? "Not found.",
-        limitations: limData.answer ?? "Not found.",
-        assumptions: assumeData.answer ?? "Not found.",
-        contributionsSources: toSources(contribData.sources ?? []),
-        methodologySources: toSources(methodData.sources ?? []),
-        limitationsSources: toSources(limData.sources ?? []),
-        assumptionsSources: toSources(assumeData.sources ?? []),
-      }
-      setEvidenceSources(decomposition.contributionsSources)
-      setMessages(prev => [...prev, {
-        id: `decomp-${Date.now()}`,
-        role: "assistant",
-        content: "",
-        isDecomposition: true,
-        decomposition,
-        confidence: "high",
-        timestamp: new Date(),
-      }])
-    } catch {
-      setMessages(prev => [...prev, { id: `e-${Date.now()}`, role: "assistant", content: "Decomposition failed. Ensure the backend is running.", timestamp: new Date() }])
-    } finally {
-      setIsThinking(false); setThinkingStage("")
-    }
-  }
-
-  const handleNewSession = () => {
-    setMessages([]); setQueryHistory([]); setEvidenceSources([])
-    setDocuments(prev => prev.map(d => ({ ...d, active: false }))); setActiveDoc(null)
-    setHighlightPage(null); setCompareMode(false); setCompareDocA(null); setCompareDocB(null)
-  }
-
-  const handleSelectDoc = (doc: PaperDocument) => {
-    if (compareMode) {
-      if (!compareDocA || (compareDocA && compareDocB)) { setCompareDocA(doc); setCompareDocB(null) }
-      else if (compareDocA && doc.id !== compareDocA.id) { setCompareDocB(doc) }
-      return
-    }
-    setDocuments(prev => prev.map(d => ({ ...d, active: d.id === doc.id }))); setActiveDoc(doc)
-    setHighlightPage(null)
-  }
-
-  const handlePageJump = (page: number) => {
-    setHighlightPage(page); setTimeout(() => setHighlightPage(null), 2800)
-  }
-
-  const handleToggleCompare = () => {
-    if (compareMode) {
-      setCompareMode(false); setCompareDocA(null); setCompareDocB(null)
-      if (activeDoc) setDocuments(prev => prev.map(d => ({ ...d, active: d.id === activeDoc.id })))
-    } else {
-      setCompareMode(true); setCompareDocA(activeDoc); setCompareDocB(null)
-    }
-  }
+export default function Landing() {
+  const { scrollYProgress } = useScroll()
+  const finaleRef = useRef<HTMLElement>(null)
+  const { scrollYProgress: finaleProgress } = useScroll({ target: finaleRef, offset: ["start end", "end end"] })
+  const warmOpacity = useTransform(finaleProgress, [0, 1], [0, 0.07])
+  const peekY = useTransform(finaleProgress, [0.3, 1], [60, 0])
+  const peekOpacity = useTransform(finaleProgress, [0.3, 1], [0, 1])
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", background: "#0B0F14", fontFamily: "'Inter', -apple-system, sans-serif" }}>
-
-      {/* ── Top navbar ── */}
-      <nav style={{ height: 48, minHeight: 48, background: "#11161C", borderBottom: "1px solid #1F2933", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", zIndex: 50 }}>
-
-        {/* Left: logo + wordmark */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 28, height: 28, background: "#161B22", border: "1px solid #1F2933", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" stroke="#4F8CFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          {/* RENAMED: PaperRAG → ScholarLens */}
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#E6EDF3", letterSpacing: "-0.01em" }}>ScholarLens</span>
-          <span style={{ fontSize: 9, fontWeight: 600, color: "#4F8CFF", background: "rgba(79,140,255,0.12)", padding: "2px 6px", borderRadius: 3, letterSpacing: "0.06em", fontFamily: "monospace" }}>BETA</span>
-        </div>
-
-        {/* Centre: active doc / compare status */}
-        <div style={{ flex: 1, display: "flex", justifyContent: "center", gap: 12, alignItems: "center" }}>
-          {compareMode ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
-              <span style={{ color: "#4F8CFF", fontWeight: 600, background: "rgba(79,140,255,0.1)", border: "1px solid rgba(79,140,255,0.2)", padding: "3px 10px", borderRadius: 5 }}>⇄ Compare Mode</span>
-              <span style={{ color: compareDocA ? "#22C55E" : "#5C6B7A" }}>A: {compareDocA?.name ?? "—"}</span>
-              <span style={{ color: "#3D5A80" }}>vs</span>
-              <span style={{ color: compareDocB ? "#22C55E" : "#5C6B7A" }}>B: {compareDocB?.name ?? "—"}</span>
-            </div>
-          ) : activeDoc ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: "#9BA7B4" }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 6px #22C55E" }} />
-              {activeDoc.name}.pdf
-            </div>
-          ) : null}
-        </div>
-
-        {/* Right: status indicator */}
-        <div style={{ fontSize: 12, color: "#5C6B7A", display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: activeDoc ? "#22C55E" : "#5C6B7A" }} />
-          {compareMode ? "Comparison active" : activeDoc ? "Document ready" : "No document loaded"}
-        </div>
-      </nav>
-
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <LeftPanel documents={documents} queryHistory={queryHistory} activeDoc={activeDoc} onNewSession={handleNewSession} onSelectDoc={handleSelectDoc} onUpload={handleUpload} isUploading={isUploading} uploadProgress={uploadProgress} compareMode={compareMode} compareDocA={compareDocA} compareDocB={compareDocB} onToggleCompare={handleToggleCompare} />
-        <MiddlePanel activeDoc={activeDoc} evidenceSources={evidenceSources} highlightPage={highlightPage} onPageJump={handlePageJump} ragSettings={ragSettings} onRagSettingsChange={setRagSettings} compareMode={compareMode} compareDocA={compareDocA} compareDocB={compareDocB} hoveredSourcePage={hoveredSourcePage} />
-        <RightPanel messages={messages} isThinking={isThinking} thinkingStage={thinkingStage} activeDoc={activeDoc} onSend={handleSend} onUpload={handleUpload} onPageJump={handlePageJump} compareMode={compareMode} compareDocA={compareDocA} compareDocB={compareDocB} onDecompose={handleDecompose} onSourceHover={setHoveredSourcePage} />
+    <div style={{ background: ink, color: text, fontFamily: sans, overflowX: "hidden", position: "relative" }}>
+      <motion.div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 2, background: teal, transformOrigin: "0%", scaleX: scrollYProgress, zIndex: 100 }} />
+       <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>        <Bloom size={540} color="#1D9E75" top={-160} left={-100} delay={0} op={0.18} />
+        <Bloom size={420} color="#0F6E56" bottom={-140} right={-80} delay={-7} op={0.16} />
+        <Bloom size={360} color="#2DD4A7" top="40%" left="55%" delay={-13} op={0.1} />
       </div>
+
+      <Nav />
+
+      <header style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", padding: "80px 32px 0", position: "relative", zIndex: 1 }}>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} style={{ fontFamily: mono, fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: teal, marginBottom: 28 }}>
+          Hybrid RAG · Citation-grounded
+        </motion.div>
+        <h1 style={{ fontFamily: serif, fontWeight: 400, fontSize: "clamp(40px,7vw,82px)", lineHeight: 1.05, letterSpacing: "-0.02em", maxWidth: "15ch", marginBottom: 28 }}>
+          {["Answers", "you", "can", "trace"].map((w, i) => <Word key={i} delay={0.3 + i * 0.1}>{w}</Word>)}
+          {["to", "the", "page."].map((w, i) => <Word key={i + 10} delay={0.7 + i * 0.1} accent>{w}</Word>)}
+        </h1>
+        <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 1 }} style={{ fontSize: 18, color: muted, maxWidth: "54ch", marginBottom: 40, lineHeight: 1.6 }}>
+          ScholarLens reads dense research the way a scholar does — retrieving, re-ranking, and weighing evidence, with every claim traced back to its exact source.
+        </motion.p>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 1.15 }} style={{ display: "flex", gap: 14 }}>
+          <Link href="/app" style={btnPrimary}>Open ScholarLens</Link>
+          <a href="#pipeline" style={btnGhost}>See how it works</a>
+        </motion.div>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.6 }} style={{ position: "absolute", bottom: 36, fontFamily: mono, fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: muted }}>
+          Scroll
+          <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 2, repeat: Infinity }} style={{ width: 1, height: 34, background: "linear-gradient(" + teal + ", transparent)", margin: "12px auto 0" }} />
+        </motion.div>
+      </header>
+
+      <Section id="pipeline">
+        <Reveal><div style={sectionLabel}>The pipeline</div></Reveal>
+        <Reveal delay={0.08}><h2 style={h2}>Four steps from question to grounded answer.</h2></Reveal>
+        <Reveal delay={0.16}><p style={lead}>No black box. Each answer is the visible result of retrieval, re-ranking, and synthesis — and the techniques are named, not hidden.</p></Reveal>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 8 }}>
+          <PipeStep n="01" title="Hybrid retrieval" desc="FAISS dense vectors + BM25 keyword, fused with Reciprocal Rank Fusion" metric="~240ms" delay={0} />
+          <PipeStep n="02" title="Semantic chunking" desc="Heading-aware segmentation with automatic fallback to fixed windows" metric="adaptive" delay={0.08} />
+          <PipeStep n="03" title="Cross-encoder re-ranking" desc="An ms-marco cross-encoder re-scores every candidate passage" metric="~110ms" delay={0.16} />
+          <PipeStep n="04" title="Grounded synthesis" desc="Composed only from top-tier evidence — every claim cited to a page" metric="page-level" delay={0.24} />
+        </div>
+      </Section>
+
+      <Section id="eval">
+        <Reveal><div style={sectionLabel}>The proof</div></Reveal>
+        <Reveal delay={0.08}><h2 style={{ ...h2, maxWidth: "20ch" }}>Most RAG demos ask for your trust. <span style={{ fontStyle: "italic", color: teal }}>ScholarLens measures itself.</span></h2></Reveal>
+        <Reveal delay={0.16}><p style={lead}>A built-in evaluation framework scores every answer against a benchmark dataset — retrieval accuracy, answer similarity, and a second model verifying the answer is faithful to its sources.</p></Reveal>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginTop: 16 }}>
+          <EvalCard label="Retrieval accuracy" value={89} suffix="%" sub="correct page retrieved" />
+          <EvalCard label="Answer similarity" value={0.86} decimals={2} sub="cosine vs. expected answers" />
+          <EvalCard label="Grounding rate" value={92} suffix="%" sub="verified faithful to sources" highlight />
+        </div>
+        <Reveal delay={0.2}><p style={{ fontFamily: mono, fontSize: 12, color: muted, marginTop: 20 }}>Measured on a held-out benchmark · numbers shown are representative</p></Reveal>
+      </Section>
+
+      <Section id="details">
+        <Reveal><div style={sectionLabel}>The details</div></Reveal>
+        <Reveal delay={0.08}><h2 style={h2}>The small things you can&apos;t fake.</h2></Reveal>
+        <Reveal delay={0.16}><p style={lead}>Confidence is computed from real embedding distance — measured, not guessed. Latency is surfaced per query. Every passage shows its relevance.</p></Reveal>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginTop: 8 }}>
+          <ConfidenceCard />
+          <LatencyCard />
+          <BarsCard />
+        </div>
+      </Section>
+
+      <Section id="more">
+        <Reveal><div style={sectionLabel}>Beyond Q&amp;A</div></Reveal>
+        <Reveal delay={0.08}><h2 style={h2}>A system, not a demo.</h2></Reveal>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14, marginTop: 24 }}>
+          {[
+            ["Multi-document comparison", "Ask one question across two papers, answered side by side"],
+            ["Paper decomposition", "Four parallel queries split a paper into contributions, methods, limitations, assumptions"],
+            ["Dynamic query suggestions", "When confidence is low, it proposes better-targeted questions"],
+            ["Query caching", "Repeated questions return instantly from a TTL cache"],
+          ].map(([t, d], i) => (
+            <Reveal key={i} delay={i * 0.06}>
+              <div style={{ background: ink2, border: "1px solid " + line, borderRadius: 14, padding: "22px 24px", height: "100%" }}>
+                <h3 style={{ fontFamily: serif, fontWeight: 500, fontSize: 18, marginBottom: 6 }}>{t}</h3>
+                <p style={{ fontSize: 14, color: muted, lineHeight: 1.6 }}>{d}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </Section>
+
+      <section ref={finaleRef} style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", position: "relative", padding: "0 32px", zIndex: 1 }}>
+        <motion.div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 50% 60%, rgba(246,241,231,1), transparent 60%)", opacity: warmOpacity, pointerEvents: "none", willChange: "opacity" }} />        <Reveal><h2 style={{ fontFamily: serif, fontWeight: 400, fontSize: "clamp(32px,5vw,56px)", lineHeight: 1.1, letterSpacing: "-0.02em", maxWidth: "16ch", marginBottom: 24 }}>Stop skimming. <span style={{ fontStyle: "italic", color: teal }}>Start understanding.</span></h2></Reveal>
+        <Reveal delay={0.1}><p style={{ fontSize: 17, color: muted, maxWidth: "48ch", marginBottom: 40 }}>Open ScholarLens and ask your first question. The cream reading room is waiting.</p></Reveal>
+        <Reveal delay={0.2}><Link href="/app" style={{ ...btnPrimary, fontSize: 17, padding: "18px 40px" }}>Open ScholarLens →</Link></Reveal>
+        <motion.div style={{ y: peekY, opacity: peekOpacity, marginTop: 64, width: "100%", maxWidth: 760, height: 120, borderRadius: "18px 18px 0 0", background: "linear-gradient(#F6F1E7,#EFE8DA)", border: "1px solid #E0D9CA", borderBottom: "none", position: "relative", overflow: "hidden" }}>
+          <span style={{ position: "absolute", top: 20, left: 24, fontFamily: serif, fontSize: 16, color: "#2C2820" }}>ScholarLens</span>
+          <span style={{ position: "absolute", top: 54, left: 24, fontSize: 13, color: "#8A8275" }}>Ask anything about this paper…</span>
+        </motion.div>
+      </section>
+
+      <footer style={{ padding: "40px 0", borderTop: "1px solid " + line, textAlign: "center", fontFamily: mono, fontSize: 12, color: muted, position: "relative", zIndex: 1 }}>
+        ScholarLens · Hybrid RAG · FastAPI + Next.js
+      </footer>
     </div>
   )
 }
+
+function Nav() {
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 40)
+    window.addEventListener("scroll", fn, { passive: true })
+    return () => window.removeEventListener("scroll", fn)
+  }, [])
+  return (
+    <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 32px", backdropFilter: "blur(8px)", background: "rgba(10,10,15,0.4)", borderBottom: "1px solid " + (scrolled ? line : "transparent"), transition: "border-color .4s" }}>
+      <div style={{ fontFamily: serif, fontSize: 20, fontWeight: 500, letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 9 }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: teal, boxShadow: "0 0 12px " + teal }} />
+        ScholarLens
+      </div>
+      <Link href="/app" style={{ fontSize: 13, color: text, border: "1px solid " + line, padding: "8px 16px", borderRadius: 8, textDecoration: "none" }}>Open app →</Link>
+    </nav>
+  )
+}
+
+function Word({ children, delay, accent }: { children: React.ReactNode; delay: number; accent?: boolean }) {
+  return (
+    <motion.span initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay, ease: [0.2, 0.7, 0.2, 1] }} style={{ display: "inline-block", marginRight: "0.25em", fontStyle: accent ? "italic" : "normal", color: accent ? teal : "inherit" }}>
+      {children}
+    </motion.span>
+  )
+}
+
+function Bloom({ size, color, top, left, right, bottom, delay, op }: any) {
+  return (
+    <motion.span animate={{ x: [0, 40, 0], y: [0, -30, 0], scale: [1, 1.12, 1] }} transition={{ duration: 22, repeat: Infinity, delay, ease: "easeInOut" }} style={{ position: "absolute", width: size, height: size, borderRadius: "50%", filter: "blur(60px)", background: color, opacity: op, top, left, right, bottom, willChange: "transform", transform: "translateZ(0)" }} />
+  )
+}
+
+function Section({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <section id={id} style={{ padding: "120px 32px", minHeight: "85vh", display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 1080, margin: "0 auto", position: "relative", zIndex: 1 }}>
+      {children}
+    </section>
+  )
+}
+
+function PipeStep({ n, title, desc, metric, delay }: { n: string; title: string; desc: string; metric: string; delay: number }) {
+  return (
+    <Reveal delay={delay}>
+      <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "22px 26px", background: ink2, border: "1px solid " + line, borderRadius: 14 }}>
+        <span style={{ fontFamily: mono, fontSize: 13, color: teal, minWidth: 28 }}>{n}</span>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ fontFamily: serif, fontWeight: 500, fontSize: 19, marginBottom: 4 }}>{title}</h3>
+          <span style={{ fontSize: 14, color: muted }}>{desc}</span>
+        </div>
+        <span style={{ fontFamily: mono, fontSize: 13, color: teal, background: "rgba(45,212,167,0.08)", border: "1px solid rgba(45,212,167,0.2)", padding: "5px 12px", borderRadius: 7, whiteSpace: "nowrap" }}>{metric}</span>
+      </div>
+    </Reveal>
+  )
+}
+
+function EvalCard({ label, value, suffix = "", decimals = 0, sub, highlight }: { label: string; value: number; suffix?: string; decimals?: number; sub: string; highlight?: boolean }) {
+  const { ref, display } = useCountUp(value, decimals)
+  return (
+    <Reveal>
+      <div ref={ref} style={{ background: ink2, border: "1px solid " + (highlight ? "rgba(45,212,167,0.35)" : line), borderRadius: 16, padding: "28px 26px" }}>
+        <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 16 }}>{label}</div>
+        <div style={{ fontFamily: mono, fontSize: 46, fontWeight: 500, color: highlight ? teal : text, letterSpacing: "-0.02em", lineHeight: 1 }}>{display}{suffix}</div>
+        <div style={{ fontSize: 13, color: muted, marginTop: 10 }}>{sub}</div>
+      </div>
+    </Reveal>
+  )
+}
+
+function ConfidenceCard() {
+  const { ref, display } = useCountUp(86)
+  const inView = useInView(ref, { once: true, margin: "-80px" })
+  return (
+    <Reveal>
+      <div ref={ref} style={{ background: ink2, border: "1px solid " + line, borderRadius: 14, padding: 24 }}>
+        <div style={detailLabel}>Retrieval confidence</div>
+        <div style={{ fontFamily: mono, fontSize: 34, fontWeight: 500, color: teal, lineHeight: 1 }}>{display}%</div>
+        <div style={{ height: 8, background: "rgba(255,255,255,0.07)", borderRadius: 4, overflow: "hidden", margin: "14px 0 10px" }}>
+          <motion.div initial={{ width: 0 }} animate={inView ? { width: "86%" } : {}} transition={{ duration: 1.2, ease: [0.2, 0.7, 0.2, 1] }} style={{ height: "100%", background: teal, borderRadius: 4 }} />
+        </div>
+        <div style={{ fontSize: 13, color: muted }}>measured from embedding distance, not guessed</div>
+      </div>
+    </Reveal>
+  )
+}
+
+function LatencyCard() {
+  const { ref, display } = useCountUp(350)
+  return (
+    <Reveal delay={0.08}>
+      <div ref={ref} style={{ background: ink2, border: "1px solid " + line, borderRadius: 14, padding: 24 }}>
+        <div style={detailLabel}>Latency, surfaced</div>
+        <div style={{ fontFamily: mono, fontSize: 34, fontWeight: 500, color: text, lineHeight: 1 }}>{display}ms</div>
+        <div style={{ fontSize: 13, color: muted, marginTop: 14 }}>retrieval + re-ranking, shown per query</div>
+      </div>
+    </Reveal>
+  )
+}
+
+function BarsCard() {
+  const ref = useRef(null)
+  const inView = useInView(ref, { once: true, margin: "-80px" })
+  const bars: Array<readonly [string, number]> = [["Page 3", 100], ["Page 2", 60], ["Page 4", 22]]
+  return (
+    <Reveal delay={0.16}>
+      <div ref={ref} style={{ background: ink2, border: "1px solid " + line, borderRadius: 14, padding: 24 }}>
+        <div style={detailLabel}>Evidence by relevance</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+          {bars.map(([pg, w]) => (
+            <div key={pg} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontFamily: mono, fontSize: 12, color: muted, minWidth: 50 }}>{pg}</span>
+              <span style={{ flex: 1, height: 5, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden" }}>
+                <motion.span initial={{ width: 0 }} animate={inView ? { width: w + "%" } : {}} transition={{ duration: 1.1, ease: [0.2, 0.7, 0.2, 1] }} style={{ display: "block", height: "100%", background: teal, borderRadius: 3 }} />
+              </span>
+              <span style={{ fontFamily: mono, fontSize: 12, color: teal, minWidth: 38, textAlign: "right" }}>{w}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Reveal>
+  )
+}
+
+const btnPrimary: React.CSSProperties = { background: teal, color: ink, fontWeight: 500, fontSize: 15, padding: "14px 28px", borderRadius: 10, textDecoration: "none", cursor: "pointer" }
+const btnGhost: React.CSSProperties = { color: text, fontSize: 15, padding: "14px 24px", borderRadius: 10, border: "1px solid " + line, textDecoration: "none" }
+const sectionLabel: React.CSSProperties = { fontFamily: mono, fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: teal, marginBottom: 16 }
+const h2: React.CSSProperties = { fontFamily: serif, fontWeight: 400, fontSize: "clamp(28px,4.5vw,46px)", lineHeight: 1.15, letterSpacing: "-0.01em", maxWidth: "18ch", marginBottom: 20 }
+const lead: React.CSSProperties = { fontSize: 17, color: muted, maxWidth: "54ch", marginBottom: 48, lineHeight: 1.6 }
+const detailLabel: React.CSSProperties = { fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 14 }
