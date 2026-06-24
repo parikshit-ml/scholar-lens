@@ -180,7 +180,7 @@ function LowConfidenceBanner({ confidenceReason, chunksUsed, originalQuestion, o
     if (fetched || loading) return
     setLoading(true)
     try {
-      const res = await fetch("http://localhost:8005/suggest", {
+      const res = await fetch("https://LordMorata-scholarlens-backend.hf.space/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: originalQuestion, confidence_reason: confidenceReason }),

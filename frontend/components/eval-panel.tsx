@@ -70,7 +70,7 @@ export default function EvalPanel() {
     setRunning(true); setResults([]); setSummary(null); setError("")
 
     try {
-      const res = await fetch("http://localhost:8005/evaluate", {
+      const res = await fetch("https://LordMorata-scholarlens-backend.hf.space/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ doc_id: resolvedId, dataset, k: 8 }),

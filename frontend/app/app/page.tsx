@@ -66,7 +66,7 @@ export type RagSettings = {
 }
 
 async function callAsk(question: string, docId: string, settings: RagSettings): Promise<{ answer: string; sources?: any[]; confidence?: string; confidence_reason?: string; retrieval_ms?: number; rerank_ms?: number; chunks_used?: number; cached?: boolean }> {
-  const res = await fetch("http://localhost:8005/ask", {
+  const res = await fetch("https://LordMorata-scholarlens-backend.hf.space/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, doc_id: docId, k: settings.k, answer_style: settings.answerStyle, temperature: settings.temperature }),
@@ -76,7 +76,7 @@ async function callAsk(question: string, docId: string, settings: RagSettings): 
 }
 
 async function callCompare(question: string, docIdA: string, docIdB: string, settings: RagSettings): Promise<{ answer: string; sources_a?: any[]; sources_b?: any[]; confidence?: string }> {
-  const res = await fetch("http://localhost:8005/compare", {
+  const res = await fetch("https://LordMorata-scholarlens-backend.hf.space/compare", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, doc_id_a: docIdA, doc_id_b: docIdB, k: settings.k, answer_style: settings.answerStyle, temperature: settings.temperature }),
@@ -89,7 +89,7 @@ async function callUpload(file: File, docId: string): Promise<{ chunks: number }
   const formData = new FormData()
   formData.append("file", file)
   formData.append("doc_id", docId)
-  const res = await fetch("http://localhost:8005/upload", { method: "POST", body: formData })
+  const res = await fetch("https://LordMorata-scholarlens-backend.hf.space/upload", { method: "POST", body: formData })
   if (!res.ok) throw new Error("Upload failed")
   return res.json()
 }
