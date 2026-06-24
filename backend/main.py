@@ -1,6 +1,14 @@
 # main.py — ScholarLens Backend
 # Upgrades: Hybrid Search + Cross-Encoder Reranking + Semantic Chunking + Query Cache + Multi-page Eval + Reranker Scores + Timing Metrics + Dynamic Suggestions
 
+# ── Hugging Face Spaces: redirect all caches to /tmp BEFORE importing ML libs ──
+import os
+os.environ.setdefault("HF_HOME", "/tmp/hf_cache")
+os.environ.setdefault("TRANSFORMERS_CACHE", "/tmp/hf_cache")
+os.environ.setdefault("SENTENCE_TRANSFORMERS_HOME", "/tmp/hf_cache")
+os.environ.setdefault("HF_HUB_CACHE", "/tmp/hf_cache")
+os.environ.setdefault("XDG_CACHE_HOME", "/tmp/.cache")
+
 from fastapi import FastAPI, UploadFile, File, Form
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +18,7 @@ import faiss
 import numpy as np
 from PyPDF2 import PdfReader
 from openai import AsyncOpenAI
-import os, re, hashlib, time, json
+import re, hashlib, time, json
 from dotenv import load_dotenv
 from typing import Optional
 
@@ -48,7 +56,24 @@ def cache_set(key: str, answer: str, sources: list, confidence: str, confidence_
     query_cache[key] = {"answer": answer, "sources": sources, "confidence": confidence, "confidence_reason": confidence_reason, "ts": time.time()}
     print(f"CACHE SET: {len(query_cache)} entries in cache")
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# CORS — allow the deployed Vercel frontend + local dev. Add your custom domain here later if you set one.
+ALLOWED_ORIGINS = [
+    "https://scholar-lens-eta.vercel.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",  # also allow Vercel preview deployments
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "ScholarLens backend", "models": "MiniLM + ms-marco cross-encoder"}
 
 
 def clean_page_text(text: str) -> str:

@@ -2,7 +2,7 @@
 // Single source of truth for all backend communication.
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8005";
+  process.env.NEXT_PUBLIC_API_URL ?? "https://LordMorata-scholarlens-backend.hf.space";
 
 // ---------- Shared types (mirror the backend response shapes) ----------
 
