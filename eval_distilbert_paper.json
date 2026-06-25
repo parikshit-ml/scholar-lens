@@ -1,0 +1,74 @@
+[
+  {
+    "question": "What problem does DistilBERT address?",
+    "expected_answer": "Large pre-trained language models have hundreds of millions of parameters, making them costly to train and hard to run on-device or under tight compute budgets. DistilBERT addresses this by pre-training a smaller general-purpose model with knowledge distillation that stays cheap, fast, and deployable while keeping strong performance.",
+    "expected_pages": [
+      1
+    ]
+  },
+  {
+    "question": "What is knowledge distillation?",
+    "expected_answer": "Knowledge distillation is a compression technique where a compact student model is trained to reproduce the behaviour of a larger teacher model (or an ensemble), learning from the teacher's full soft output distribution rather than only hard labels.",
+    "expected_pages": [
+      2
+    ]
+  },
+  {
+    "question": "What is the triple loss used to train DistilBERT?",
+    "expected_answer": "DistilBERT is trained with a linear combination of three losses: a distillation loss over the teacher's soft target probabilities, the supervised masked language modeling loss, and a cosine embedding loss that aligns the directions of student and teacher hidden state vectors.",
+    "expected_pages": [
+      2
+    ]
+  },
+  {
+    "question": "What is the softmax-temperature and how is it used in distillation?",
+    "expected_answer": "A softmax-temperature T controls the smoothness of the output distribution during distillation. The same temperature is applied to teacher and student at training time, and is set to 1 at inference to recover a standard softmax.",
+    "expected_pages": [
+      2
+    ]
+  },
+  {
+    "question": "How does DistilBERT's architecture differ from BERT, and how is the student initialized?",
+    "expected_answer": "DistilBERT keeps BERT's general architecture but removes the token-type embeddings and pooler and halves the number of layers. The student is initialized from the teacher by taking one layer out of every two, exploiting their shared dimensionality.",
+    "expected_pages": [
+      2
+    ]
+  },
+  {
+    "question": "How much of BERT's performance does DistilBERT retain on GLUE?",
+    "expected_answer": "DistilBERT retains about 97% of BERT-base's performance on the GLUE benchmark while having 40% fewer parameters, and it is always on par with or better than the ELMo baseline across the nine tasks.",
+    "expected_pages": [
+      3
+    ]
+  },
+  {
+    "question": "How much smaller and faster is DistilBERT than BERT?",
+    "expected_answer": "DistilBERT has 40% fewer parameters than BERT (66 million versus 110 million) and is 60% faster at inference, with about 410 seconds versus 668 for a full STS-B pass on CPU.",
+    "expected_pages": [
+      3,
+      4
+    ]
+  },
+  {
+    "question": "What data and compute were used to train DistilBERT?",
+    "expected_answer": "DistilBERT was trained on the same corpus as BERT, a concatenation of English Wikipedia and the Toronto Book Corpus, using 8 16GB V100 GPUs for about 90 hours, distilled on very large batches with dynamic masking and no next-sentence-prediction objective.",
+    "expected_pages": [
+      3
+    ]
+  },
+  {
+    "question": "How does DistilBERT perform on downstream tasks like IMDb and SQuAD?",
+    "expected_answer": "On IMDb, DistilBERT is only 0.6% behind BERT in test accuracy while being 40% smaller; on SQuAD it is within about 3.9 points, and adding a second distillation step during fine-tuning narrows the gap further.",
+    "expected_pages": [
+      3,
+      4
+    ]
+  },
+  {
+    "question": "What did the ablation study reveal about the components of the training objective?",
+    "expected_answer": "The ablation showed that removing the masked language modeling loss has little impact, while the two distillation-related losses account for a large part of the performance, and that initializing the student from teacher weights is important compared to random initialization.",
+    "expected_pages": [
+      4
+    ]
+  }
+]

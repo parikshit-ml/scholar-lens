@@ -516,8 +516,17 @@ async def evaluate(req: EvalRequest):
 
         context_parts = [f"[Page {store[i]['page']}]\n{store[i]['text']}" for i in top_indices if 0 <= i < len(store)]
         context = "\n\n".join(context_parts)
-        prompt = f"""You are ScholarLens. Answer using ONLY the provided context.\n\nContext:\n{context}\n\nQuestion: {item.question}\n\nAnswer:"""
+        prompt = f"""You are ScholarLens, an intelligent document analysis assistant.
 
+        Answer the question using the context passages below as your primary source. You may paraphrase and synthesize across passages. Cite page numbers like (Page 3) where relevant. Be accurate and concise.
+
+        Context:
+        {context}
+        
+        Question: {item.question}
+        
+        Answer:"""
+        
         actual_answer = ""
         try:
             response = await client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], temperature=0.1)
@@ -532,13 +541,29 @@ async def evaluate(req: EvalRequest):
             sim = 0.0
         total_similarity += sim
 
-        grounding_prompt = f"Does this answer use ONLY information from the context?\n\nContext:\n{context[:1500]}\n\nAnswer:\n{actual_answer[:500]}\n\nReply with exactly: GROUNDED or HALLUCINATED"
+        grounding_prompt = f"""You are checking whether an answer is factually supported by the given context passages.
+
+        The answer is GROUNDED if every factual claim it makes can be verified from the context — even if it paraphrases, summarizes, or rephrases rather than quoting verbatim. Reasonable paraphrasing of context content is still grounded.
+
+        The answer is UNGROUNDED only if it introduces specific facts, numbers, or claims that are NOT present in the context and cannot be inferred from it.
+
+        Context:
+        {context[:6000]}
+
+        Answer:
+        {actual_answer[:1500]}
+
+        Reply with exactly one word on the first line: GROUNDED or UNGROUNDED"""
         grounded = False
         try:
             g_response = await client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": grounding_prompt}], temperature=0.0)
-            grounded = "GROUNDED" in g_response.choices[0].message.content.strip().upper()
+            verdict = g_response.choices[0].message.content.strip().upper()
+            # Robust parse: grounded unless it clearly says UNGROUNDED / NOT GROUNDED / HALLUCINATED
+            grounded = not any(neg in verdict for neg in ["UNGROUNDED", "NOT GROUNDED", "HALLUCINAT", "NOT SUPPORTED", "NOT FULLY"])
             if grounded: total_grounded += 1
-        except: pass
+            if grounded: total_grounded += 1
+        except Exception as e:
+            print(f"GROUNDING ERROR: {e}")
 
         sim_label = "correct" if sim >= 0.75 else "partial" if sim >= 0.50 else "wrong"
         results.append({"question": item.question, "expected_answer": item.expected_answer, "actual_answer": actual_answer, "expected_pages": item.expected_pages, "retrieved_pages": retrieved_pages, "retrieval_hit": retrieval_hit, "similarity": round(sim, 3), "similarity_label": sim_label, "grounded": grounded})

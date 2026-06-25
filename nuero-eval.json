@@ -1,0 +1,80 @@
+[
+  {
+    "question": "What problem does this paper aim to solve?",
+    "expected_answer": "Pre-trained language models store knowledge implicitly in their parameters, which makes that knowledge hard to access precisely, update, or trace, and they can hallucinate. The paper combines parametric memory with non-parametric retrieval to improve performance on knowledge-intensive tasks.",
+    "expected_pages": [
+      1,
+      2
+    ]
+  },
+  {
+    "question": "What is Retrieval-Augmented Generation (RAG)?",
+    "expected_answer": "RAG is a fine-tuning approach combining a pre-trained parametric seq2seq model with non-parametric memory — a dense vector index of Wikipedia accessed by a neural retriever — trained end-to-end for language generation.",
+    "expected_pages": [
+      1,
+      2
+    ]
+  },
+  {
+    "question": "What are the two RAG model formulations proposed?",
+    "expected_answer": "RAG-Sequence and RAG-Token. RAG-Sequence uses the same retrieved document for the whole output; RAG-Token can use a different retrieved document for each generated token.",
+    "expected_pages": [
+      2,
+      3
+    ]
+  },
+  {
+    "question": "What retriever does RAG use and what architecture does it follow?",
+    "expected_answer": "RAG uses Dense Passage Retriever (DPR), a bi-encoder with a BERT document encoder and a BERT query encoder, retrieving via Maximum Inner Product Search (MIPS).",
+    "expected_pages": [
+      3
+    ]
+  },
+  {
+    "question": "What model is used as the generator?",
+    "expected_answer": "BART-large, a pre-trained seq2seq transformer with about 400 million parameters, conditioning on the input concatenated with the retrieved documents.",
+    "expected_pages": [
+      3
+    ]
+  },
+  {
+    "question": "How are the retriever and generator trained?",
+    "expected_answer": "Jointly end-to-end by minimizing negative marginal log-likelihood with Adam, without supervision on which document to retrieve. The document encoder and index stay fixed; only the query encoder and BART generator are fine-tuned.",
+    "expected_pages": [
+      3,
+      4
+    ]
+  },
+  {
+    "question": "How is the non-parametric memory (knowledge source) constructed?",
+    "expected_answer": "A Wikipedia dump is split into disjoint 100-word chunks (about 21 million documents), each embedded by the document encoder and indexed with a FAISS MIPS index using HNSW approximation.",
+    "expected_pages": [
+      2,
+      4
+    ]
+  },
+  {
+    "question": "What were RAG's main results on open-domain question answering?",
+    "expected_answer": "RAG set a new state of the art on Natural Questions, WebQuestions, and CuratedTrec and was strong on TriviaQA, beating closed-book parametric models and extractive retrieve-and-read systems without needing a re-ranker or extractive reader.",
+    "expected_pages": [
+      5,
+      6
+    ]
+  },
+  {
+    "question": "How does RAG compare to BART on generation tasks like Jeopardy question generation?",
+    "expected_answer": "RAG-Token beat BART on Q-BLEU-1 for Jeopardy generation, and human raters found RAG more factual and more specific — more factual in 42.7% of cases versus 7.1% for BART.",
+    "expected_pages": [
+      6,
+      8
+    ]
+  },
+  {
+    "question": "What is the advantage of RAG's non-parametric memory being able to be hot-swapped?",
+    "expected_answer": "Because knowledge lives in a replaceable index rather than only in parameters, the model's world knowledge can be updated at test time by swapping the index, with no retraining; RAG answered correctly using the index matching the question's time period.",
+    "expected_pages": [
+      7,
+      8
+    ]
+  }
+]

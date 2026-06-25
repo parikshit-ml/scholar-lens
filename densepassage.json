@@ -1,0 +1,75 @@
+[
+  {
+    "question": "What problem does the DPR paper address?",
+    "expected_answer": "Open-domain QA depends on passage retrieval, traditionally done with sparse methods like TF-IDF or BM25. The paper shows retrieval can be done with dense representations alone, learned from a small number of question-passage pairs with a simple dual-encoder, outperforming BM25 and improving end-to-end QA.",
+    "expected_pages": [
+      1
+    ]
+  },
+  {
+    "question": "What is Dense Passage Retrieval (DPR)?",
+    "expected_answer": "DPR is a dense retriever that uses a dual-encoder: a passage encoder maps passages to dense vectors that are indexed, and a question encoder maps the question to a vector, retrieving the passages whose vectors are closest by inner-product similarity.",
+    "expected_pages": [
+      2,
+      3
+    ]
+  },
+  {
+    "question": "What encoders does DPR use and how is similarity computed?",
+    "expected_answer": "DPR uses two independent BERT (base, uncased) networks, taking the [CLS] token representation, giving 768-dimensional vectors. Similarity between a question and passage is the dot product of their encoded vectors.",
+    "expected_pages": [
+      3
+    ]
+  },
+  {
+    "question": "How is DPR trained, and what is the training objective?",
+    "expected_answer": "It is trained as a metric-learning problem, optimizing the negative log-likelihood of the positive passage so relevant question-passage pairs have higher similarity than irrelevant ones. Each instance has a question, one positive passage, and several negative passages.",
+    "expected_pages": [
+      3
+    ]
+  },
+  {
+    "question": "What is in-batch negative training and why is it useful?",
+    "expected_answer": "In-batch negatives reuse the positive passages of other questions in the same mini-batch as negatives. With B questions, the B-by-B similarity matrix gives each question B-1 negatives, reusing computation, increasing training pairs, and improving performance as batch size grows.",
+    "expected_pages": [
+      3,
+      4
+    ]
+  },
+  {
+    "question": "How was the Wikipedia data preprocessed for the passage collection?",
+    "expected_answer": "The December 2018 English Wikipedia dump was cleaned with DrQA preprocessing to remove tables, infoboxes, and lists, then split into disjoint 100-word passages, yielding about 21 million passages, each prepended with its article title.",
+    "expected_pages": [
+      4
+    ]
+  },
+  {
+    "question": "How does DPR compare to BM25 on retrieval accuracy?",
+    "expected_answer": "DPR consistently outperforms BM25 on top-20 and top-100 retrieval accuracy across datasets (except SQuAD), with a large gap when k is small, for example 78.4% versus 59.1% top-20 on Natural Questions.",
+    "expected_pages": [
+      5
+    ]
+  },
+  {
+    "question": "How sample-efficient is DPR in terms of training examples?",
+    "expected_answer": "DPR is highly sample-efficient: trained on only about 1,000 examples it already outperforms BM25, and adding more examples up to 59k further improves retrieval accuracy consistently.",
+    "expected_pages": [
+      5,
+      6
+    ]
+  },
+  {
+    "question": "How does higher retrieval accuracy affect end-to-end QA performance?",
+    "expected_answer": "Higher retrieval accuracy generally yields better final QA: answers extracted from DPR-retrieved passages are more likely correct than from BM25, and DPR-based models set new state of the art on four of five datasets.",
+    "expected_pages": [
+      8
+    ]
+  },
+  {
+    "question": "How efficient is DPR at run-time compared to BM25?",
+    "expected_answer": "Using an in-memory FAISS index, DPR processes about 995 questions per second returning top-100 passages, versus about 23.7 per second for BM25/Lucene, though building the dense FAISS index is much slower than building an inverted index.",
+    "expected_pages": [
+      7
+    ]
+  }
+]
