@@ -90,11 +90,11 @@ export default function Landing() {
         <Reveal delay={0.08}><h2 style={{ ...h2, maxWidth: "20ch" }}>Most RAG demos ask for your trust. <span style={{ fontStyle: "italic", color: teal }}>ScholarLens measures itself.</span></h2></Reveal>
         <Reveal delay={0.16}><p style={lead}>A built-in evaluation framework scores every answer against a benchmark dataset — retrieval accuracy, answer similarity, and a second model verifying the answer is faithful to its sources.</p></Reveal>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginTop: 16 }}>
-          <EvalCard label="Retrieval accuracy" value={89} suffix="%" sub="correct page retrieved" />
-          <EvalCard label="Answer similarity" value={0.86} decimals={2} sub="cosine vs. expected answers" />
-          <EvalCard label="Grounding rate" value={92} suffix="%" sub="verified faithful to sources" highlight />
+          <EvalCard label="Retrieval accuracy" value={93} suffix="%" sub="correct page retrieved" />
+          <EvalCard label="Answer similarity" value={0.74} decimals={2} sub="cosine vs. expected answers" />
+          <EvalCard label="Grounding rate" value={82} suffix="%" sub="verified faithful to sources" highlight />
         </div>
-        <Reveal delay={0.2}><p style={{ fontFamily: mono, fontSize: 12, color: muted, marginTop: 20 }}>Measured on a held-out benchmark · numbers shown are representative</p></Reveal>
+         <Reveal delay={0.2}><p style={{ fontFamily: mono, fontSize: 12, color: muted, marginTop: 20 }}>Measured across 60 questions on 5 ML papers · automated LLM-assisted evaluation</p></Reveal>
       </Section>
 
       <Section id="details">
