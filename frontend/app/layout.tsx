@@ -25,9 +25,10 @@ export const metadata: Metadata = {
   description:
     'AI-powered academic document intelligence — hybrid RAG with semantic search, cross-encoder reranking, and citation-grounded answers.',
   generator: 'ScholarLens',
+}
+export const viewport = {
   themeColor: '#F6F1E7',
 }
-
 export default function RootLayout({
   children,
 }: Readonly<{

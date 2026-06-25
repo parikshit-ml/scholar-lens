@@ -20,8 +20,8 @@ interface LeftPanelProps {
 
 export function LeftPanel({ documents, queryHistory, activeDoc, onNewSession, onSelectDoc, onUpload, isUploading, uploadProgress, compareMode, compareDocA, compareDocB, onToggleCompare }: LeftPanelProps) {
   const fileRef = useRef<HTMLInputElement>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const [hoveredDoc, setHoveredDoc] = useState<string | null>(null)
-
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (f) { onUpload(f); e.target.value = "" }
@@ -111,6 +111,12 @@ export function LeftPanel({ documents, queryHistory, activeDoc, onNewSession, on
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: highlighted ? "#2C2820" : "#6B6457", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
                     <div style={{ fontSize: 10, color: "#8A8275", marginTop: 1 }}>{doc.size} · {doc.chunks} passages</div>
+                    <div
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(doc.id); setCopiedId(doc.id); setTimeout(() => setCopiedId(null), 1200) }}
+                      title="Click to copy document ID (for the eval panel)"
+                      style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: copiedId === doc.id ? "#0F6E56" : "#A39C8C", marginTop: 3, cursor: "copy", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: "0.02em" }}>
+                      {copiedId === doc.id ? "✓ copied" : doc.id}
+                    </div>
                   </div>
                   {/* State badge */}
                   {isA && <span style={{ fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "rgba(79,140,255,0.2)", padding: "2px 6px", borderRadius: 3, flexShrink: 0 }}>A</span>}

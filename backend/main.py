@@ -312,8 +312,8 @@ Context:
 Question: {q.question}"""
 
     try:
-        response = await client.responses.create(model="gpt-4o-mini", input=prompt, temperature=q.temperature or 0.3)
-        answer = response.output[0].content[0].text
+        response = await client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], temperature=q.temperature or 0.3)
+        answer = response.choices[0].message.content
     except Exception as e:
         print("LLM ERROR:", e)
         return {"answer": "Something went wrong. Please try again.", "sources": [], "confidence": "low", "confidence_reason": "LLM error", "retrieval_ms": t_retrieval_ms, "rerank_ms": t_rerank_ms, "chunks_used": 0}
@@ -368,8 +368,8 @@ Return ONLY a JSON array of exactly 3 strings. No explanation, no markdown, no e
 Example: ["question 1", "question 2", "question 3"]"""
 
     try:
-        response = await client.responses.create(model="gpt-4o-mini", input=prompt, temperature=0.4)
-        text = response.output[0].content[0].text.strip()
+        response = await client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], temperature=0.4)
+        text = response.choices[0].message.content.strip()
         text = re.sub(r'^```[a-z]*\n?', '', text)
         text = re.sub(r'\n?```$', '', text)
         suggestions = json.loads(text.strip())
@@ -456,8 +456,8 @@ Respond in this exact format:
 [What both documents agree on or share]"""
 
     try:
-        response = await client.responses.create(model="gpt-4o-mini", input=prompt, temperature=q.temperature or 0.3)
-        answer = response.output[0].content[0].text
+        response = await client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], temperature=q.temperature or 0.3)
+        answer = response.choices[0].message.content
     except Exception as e:
         print("COMPARE LLM ERROR:", e)
         return {"answer": "Something went wrong during comparison.", "sources_a": [], "sources_b": [], "confidence": "low"}
@@ -520,8 +520,8 @@ async def evaluate(req: EvalRequest):
 
         actual_answer = ""
         try:
-            response = await client.responses.create(model="gpt-4o-mini", input=prompt, temperature=0.1)
-            actual_answer = response.output[0].content[0].text.strip()
+            response = await client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], temperature=0.1)
+            actual_answer = response.choices[0].message.content.strip()
         except Exception as e:
             print(f"EVAL LLM ERROR: {e}"); actual_answer = "ERROR"
 
@@ -535,8 +535,8 @@ async def evaluate(req: EvalRequest):
         grounding_prompt = f"Does this answer use ONLY information from the context?\n\nContext:\n{context[:1500]}\n\nAnswer:\n{actual_answer[:500]}\n\nReply with exactly: GROUNDED or HALLUCINATED"
         grounded = False
         try:
-            g_response = await client.responses.create(model="gpt-4o-mini", input=grounding_prompt, temperature=0.0)
-            grounded = "GROUNDED" in g_response.output[0].content[0].text.strip().upper()
+            g_response = await client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": grounding_prompt}], temperature=0.0)
+            grounded = "GROUNDED" in g_response.choices[0].message.content.strip().upper()
             if grounded: total_grounded += 1
         except: pass
 
