@@ -101,6 +101,7 @@ export default function Landing() {
         <Reveal><div style={sectionLabel}>The details</div></Reveal>
         <Reveal delay={0.08}><h2 style={h2}>The small things you can&apos;t fake.</h2></Reveal>
         <Reveal delay={0.16}><p style={lead}>Confidence is computed from real embedding distance — measured, not guessed. Latency is surfaced per query. Every passage shows its relevance.</p></Reveal>
+        <Reveal delay={0.18}><p style={{ fontFamily: mono, fontSize: 12, color: muted, marginBottom: 24 }}>Figures below are illustrative examples of the live interface</p></Reveal>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginTop: 8 }}>
           <ConfidenceCard />
           <LatencyCard />
