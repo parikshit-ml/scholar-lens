@@ -2,7 +2,13 @@
 
 import { useRef, useEffect, useState } from "react"
 import Link from "next/link"
-import { motion, useScroll, useTransform, useInView, animate } from "framer-motion"
+import dynamic from "next/dynamic"
+import { motion, useScroll, useTransform, useInView, animate, useReducedMotion } from "framer-motion"
+
+const EmbeddingSection = dynamic(() => import("@/components/landing/EmbeddingSection"), {
+  ssr: false,
+  loading: () => <div style={{ height: "70vh", background: "#101018", borderRadius: 14 }} />,
+})
 
 const ink = "#0A0A0F"
 const ink2 = "#101018"
@@ -18,12 +24,14 @@ function useCountUp(target: number, decimals = 0) {
   const [val, setVal] = useState(0)
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: "-80px" })
+  const reduceMotion = !!useReducedMotion()
   useEffect(() => {
     if (!inView) return
+    if (reduceMotion) { setVal(target); return }
     const controls = animate(0, target, { duration: 1.4, ease: [0.2, 0.7, 0.2, 1], onUpdate: v => setVal(v) })
     return () => controls.stop()
-  }, [inView, target])
-  return { ref, display: decimals ? val.toFixed(decimals) : Math.round(val).toString() }
+  }, [inView, target, reduceMotion])
+  return { ref, display: decimals ? val.toFixed(decimals) : Math.round(val).toString(), inView, reduceMotion }
 }
 
 function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -73,26 +81,16 @@ export default function Landing() {
         </motion.div>
       </header>
 
-      <Section id="pipeline">
-        <Reveal><div style={sectionLabel}>The pipeline</div></Reveal>
-        <Reveal delay={0.08}><h2 style={h2}>Four steps from question to grounded answer.</h2></Reveal>
-        <Reveal delay={0.16}><p style={lead}>No black box. Each answer is the visible result of retrieval, re-ranking, and synthesis — and the techniques are named, not hidden.</p></Reveal>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 8 }}>
-          <PipeStep n="01" title="Hybrid retrieval" desc="FAISS dense vectors + BM25 keyword, fused with Reciprocal Rank Fusion" metric="~240ms" delay={0} />
-          <PipeStep n="02" title="Semantic chunking" desc="Heading-aware segmentation with automatic fallback to fixed windows" metric="adaptive" delay={0.08} />
-          <PipeStep n="03" title="Cross-encoder re-ranking" desc="An ms-marco cross-encoder re-scores every candidate passage" metric="~110ms" delay={0.16} />
-          <PipeStep n="04" title="Grounded synthesis" desc="Composed only from top-tier evidence — every claim cited to a page" metric="page-level" delay={0.24} />
-        </div>
-      </Section>
+      <EmbeddingSection />
 
       <Section id="eval">
         <Reveal><div style={sectionLabel}>The proof</div></Reveal>
         <Reveal delay={0.08}><h2 style={{ ...h2, maxWidth: "20ch" }}>Most RAG demos ask for your trust. <span style={{ fontStyle: "italic", color: teal }}>ScholarLens measures itself.</span></h2></Reveal>
         <Reveal delay={0.16}><p style={lead}>A built-in evaluation framework scores every answer against a benchmark dataset — retrieval accuracy, answer similarity, and a second model verifying the answer is faithful to its sources.</p></Reveal>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginTop: 16 }}>
-          <EvalCard label="Retrieval accuracy" value={93} suffix="%" sub="correct page retrieved" />
-          <EvalCard label="Answer similarity" value={0.74} decimals={2} sub="cosine vs. expected answers" />
-          <EvalCard label="Grounding rate" value={82} suffix="%" sub="verified faithful to sources" highlight />
+          <EvalCard label="Retrieval accuracy" value={93.3} decimals={1} suffix="%" sub="correct page retrieved" variant="ring" delay={0} />
+          <EvalCard label="Grounding rate" value={81.7} decimals={1} suffix="%" sub="49 of 60 answers verified against source passages" variant="ticks" highlight delay={0.12} />
+          <EvalCard label="Answer similarity" value={0.74} decimals={2} sub="cosine vs. expected answers" variant="similarity" delay={0.24} />
         </div>
          <Reveal delay={0.2}><p style={{ fontFamily: mono, fontSize: 12, color: muted, marginTop: 20 }}>Measured across 60 questions on 5 ML papers · automated LLM-assisted evaluation</p></Reveal>
       </Section>
@@ -201,16 +199,92 @@ function PipeStep({ n, title, desc, metric, delay }: { n: string; title: string;
   )
 }
 
-function EvalCard({ label, value, suffix = "", decimals = 0, sub, highlight }: { label: string; value: number; suffix?: string; decimals?: number; sub: string; highlight?: boolean }) {
-  const { ref, display } = useCountUp(value, decimals)
+function EvalCard({ label, value, suffix = "", decimals = 0, sub, highlight, variant, delay = 0 }: { label: string; value: number; suffix?: string; decimals?: number; sub: string; highlight?: boolean; variant?: "ring" | "ticks" | "similarity"; delay?: number }) {
+  const { ref, display, inView, reduceMotion } = useCountUp(value, decimals)
   return (
-    <Reveal>
+    <Reveal delay={delay}>
       <div ref={ref} style={{ background: ink2, border: "1px solid " + (highlight ? "rgba(45,212,167,0.35)" : line), borderRadius: 16, padding: "28px 26px" }}>
         <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: muted, marginBottom: 16 }}>{label}</div>
-        <div style={{ fontFamily: mono, fontSize: 46, fontWeight: 500, color: highlight ? teal : text, letterSpacing: "-0.02em", lineHeight: 1 }}>{display}{suffix}</div>
-        <div style={{ fontSize: 13, color: muted, marginTop: 10 }}>{sub}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          {variant === "ring" && <AccuracyRing inView={inView} reduceMotion={reduceMotion} />}
+          <div style={{ fontFamily: mono, fontSize: 46, fontWeight: 500, color: highlight ? teal : text, letterSpacing: "-0.02em", lineHeight: 1 }}>{display}{suffix}</div>
+        </div>
+        {variant === "ticks" && <GroundingTicks inView={inView} reduceMotion={reduceMotion} />}
+        {variant === "similarity" && <SimilarityTrack inView={inView} reduceMotion={reduceMotion} />}
+        <div style={{ fontSize: variant === "ticks" ? 12 : 13, color: muted, marginTop: 10 }}>{sub}</div>
       </div>
     </Reveal>
+  )
+}
+
+function AccuracyRing({ inView, reduceMotion }: { inView: boolean; reduceMotion: boolean }) {
+  const size = 72
+  const strokeWidth = 6
+  const r = (size - strokeWidth) / 2
+  const c = 2 * Math.PI * r
+  const targetOffset = c * 0.067
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
+      <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.07)" strokeWidth={strokeWidth} fill="none" />
+      <motion.circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        stroke={teal}
+        strokeWidth={strokeWidth}
+        fill="none"
+        strokeDasharray={c}
+        strokeLinecap="round"
+        initial={{ strokeDashoffset: reduceMotion ? targetOffset : c }}
+        animate={inView ? { strokeDashoffset: targetOffset } : {}}
+        transition={{ duration: reduceMotion ? 0 : 1.4, ease: [0.2, 0.7, 0.2, 1] }}
+      />
+    </svg>
+  )
+}
+
+function GroundingTicks({ inView, reduceMotion }: { inView: boolean; reduceMotion: boolean }) {
+  const total = 60
+  const filled = 49
+  return (
+    <div style={{ display: "flex", gap: 3, marginTop: 16 }}>
+      {Array.from({ length: total }).map((_, i) => (
+        <motion.div
+          key={i}
+          initial={{ background: i < filled && reduceMotion ? teal : "rgba(255,255,255,0.07)" }}
+          animate={inView && i < filled ? { background: teal } : {}}
+          transition={{ duration: reduceMotion ? 0 : 0.3, delay: reduceMotion ? 0 : i * 0.016 }}
+          style={{ flex: 1, height: 14, borderRadius: 2 }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function SimilarityTrack({ inView, reduceMotion }: { inView: boolean; reduceMotion: boolean }) {
+  const pct = 74
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ position: "relative", height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 3 }}>
+        <motion.div
+          initial={{ width: reduceMotion ? pct + "%" : 0 }}
+          animate={inView ? { width: pct + "%" } : {}}
+          transition={{ duration: reduceMotion ? 0 : 1.2, ease: [0.2, 0.7, 0.2, 1] }}
+          style={{ height: "100%", background: teal, borderRadius: 3 }}
+        />
+        <motion.div
+          initial={{ left: reduceMotion ? pct + "%" : "0%" }}
+          animate={inView ? { left: pct + "%" } : {}}
+          transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 14 }}
+          style={{ position: "absolute", top: "50%", width: 14, height: 14, marginTop: -7, marginLeft: -7, borderRadius: "50%", background: teal, boxShadow: "0 0 8px " + teal }}
+        />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+        <span style={{ fontFamily: mono, fontSize: 11, color: muted }}>0 · unrelated</span>
+        <span style={{ fontFamily: mono, fontSize: 11, color: muted }}>0.5 · paraphrase</span>
+        <span style={{ fontFamily: mono, fontSize: 11, color: muted }}>1.0 · verbatim</span>
+      </div>
+    </div>
   )
 }
 

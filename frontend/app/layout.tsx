@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   generator: 'ScholarLens',
 }
 export const viewport = {
-  themeColor: '#F6F1E7',
+  themeColor: '#0A0A0F',
 }
 export default function RootLayout({
   children,

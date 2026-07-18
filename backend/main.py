@@ -279,7 +279,20 @@ async def ask(q: Query):
         if real_confidence == "medium"
         else f"Weak retrieval (distance {avg_distance:.2f}) — top scores below threshold"
     )
-
+# Tier 3 guardrail: if retrieval confidence is very weak, the question is likely
+    # off-topic (nothing in the paper matches it). Redirect instead of answering.
+    OFF_TOPIC_DISTANCE_THRESHOLD = 1.8  # tune: higher = more permissive
+    if avg_distance > OFF_TOPIC_DISTANCE_THRESHOLD:
+        print(f"GUARDRAIL: avg_distance={avg_distance:.3f} > {OFF_TOPIC_DISTANCE_THRESHOLD} — likely off-topic, redirecting")
+        return {
+            "answer": "I'm ScholarLens — I can only help with questions about the paper you've uploaded. Try asking about its methods, results, or key contributions.",
+            "sources": [],
+            "confidence": "low",
+            "confidence_reason": "Question appears unrelated to the document",
+            "retrieval_ms": t_retrieval_ms,
+            "rerank_ms": t_rerank_ms,
+            "chunks_used": 0,
+        }
     print(f"HYBRID: {len(candidate_indices)} candidates | avg_distance={avg_distance:.3f} | retrieval={t_retrieval_ms}ms")
     print(f"RERANKER: Top {len(top_indices)} chunks | rerank={t_rerank_ms}ms | CONFIDENCE: {real_confidence}")
     active_store = stores.get(doc_id, chunks_store)
@@ -297,13 +310,15 @@ async def ask(q: Query):
         "bullet": "Give your answer as BULLET POINTS only. Each point should cite a page number.",
     }.get(q.answer_style or "detailed", "Give a detailed structured answer.")
 
-    prompt = f"""You are ScholarLens, an intelligent document analysis assistant.
+    prompt = f"""You are ScholarLens, an intelligent document analysis assistant. Your ONLY purpose is to help users understand the uploaded research paper.
 
-RULES:
-1. Use the provided context passages as your PRIMARY source
-2. If the context contains relevant information, answer from it and cite page numbers like (Page 3)
-3. If the context passages are insufficient but the question is clearly about the document, say what you can infer and note what's missing
-4. Only say "not present" if the topic is genuinely unrelated to the document
+SCOPE RULES (most important):
+1. You ONLY answer questions about the uploaded document and its subject matter. This includes the paper's content, methods, results, and directly related academic/ML concepts that help explain it.
+2. If the user asks for something OFF-TOPIC — writing code, general programming help, math homework, current events, weather, personal advice, or any task unrelated to understanding this paper — politely DECLINE. Respond exactly with: "I'm ScholarLens — I can only help with questions about the paper you've uploaded. Try asking about its methods, results, or key contributions." Do not attempt the off-topic task.
+
+ANSWERING RULES:
+3. Use the provided context passages as your PRIMARY source, and cite page numbers like (Page 3).
+4. If the context is insufficient but the question is clearly about the document, say what you can infer and note what's missing.
 5. {style_instructions}
 
 Context:
