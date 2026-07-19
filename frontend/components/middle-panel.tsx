@@ -7,6 +7,7 @@ interface MiddlePanelProps {
   activeDoc: PaperDocument | null
   evidenceSources: Source[]
   highlightPage: number | null
+  jumpNonce: number
   hoveredSourcePage: number | null   // NEW — from right panel hover
   onPageJump: (page: number) => void
   ragSettings: RagSettings
@@ -16,17 +17,37 @@ interface MiddlePanelProps {
   compareDocB: PaperDocument | null
 }
 
-export function MiddlePanel({ activeDoc, evidenceSources, highlightPage, hoveredSourcePage, onPageJump, ragSettings, onRagSettingsChange, compareMode, compareDocA, compareDocB }: MiddlePanelProps) {
+export function MiddlePanel({ activeDoc, evidenceSources, highlightPage, jumpNonce, hoveredSourcePage, onPageJump, ragSettings, onRagSettingsChange, compareMode, compareDocA, compareDocB }: MiddlePanelProps) {
   const [showEvidence, setShowEvidence] = useState(true)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const iframeWrapperRef = useRef<HTMLDivElement>(null)
   const iframeRefA = useRef<HTMLIFrameElement>(null)
   const iframeRefB = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
-    if (highlightPage && iframeRef.current && activeDoc?.objectUrl) {
-      iframeRef.current.src = `${activeDoc.objectUrl}#page=${highlightPage}`
+    const iframe = iframeRef.current
+    if (!highlightPage || !iframe || !activeDoc?.objectUrl) return
+
+    // PRIMARY: navigate the already-loaded PDF in place — same-origin blob
+    // iframes allow this, and Chrome/Edge's built-in viewer jumps to the
+    // fragment without reloading the whole document.
+    let jumped = false
+    try {
+      iframe.contentWindow?.location.replace(`${activeDoc.objectUrl}#page=${highlightPage}`)
+      jumped = true
+    } catch {
+      jumped = false
     }
-  }, [highlightPage, activeDoc?.objectUrl])
+
+    // FALLBACK: some viewers/origins reject the in-place navigation above —
+    // reload with a changing dummy param so the src string is never identical
+    // to the last jump (a bare "#page=N" is a no-op on a repeat jump).
+    if (!jumped) {
+      iframe.src = `${activeDoc.objectUrl}#page=${highlightPage}&jump=${Date.now()}`
+    }
+
+    iframeWrapperRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [highlightPage, jumpNonce, activeDoc?.objectUrl])
 
   // Auto-scroll evidence card into view when hovered from right panel
   const cardRefs = useRef<{ [page: number]: HTMLDivElement | null }>({})
@@ -115,7 +136,7 @@ export function MiddlePanel({ activeDoc, evidenceSources, highlightPage, hovered
             )}
 
             {/* PDF iframe */}
-            <div style={{ background: "#EFE8DA", border: "1px solid #E0D9CA", borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
+            <div ref={iframeWrapperRef} style={{ background: "#EFE8DA", border: "1px solid #E0D9CA", borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
               <div style={{ padding: "14px 20px", borderBottom: "1px solid #E0D9CA", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: "#8A8275", letterSpacing: "0.08em", textTransform: "uppercase" }}>Document</span>
                 {(highlightPage || hoveredSourcePage) && (

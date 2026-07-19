@@ -162,6 +162,7 @@ export default function Page() {
   const [thinkingStage, setThinkingStage] = useState("")
   const [evidenceSources, setEvidenceSources] = useState<Source[]>([])
   const [highlightPage, setHighlightPage] = useState<number | null>(null)
+  const [jumpNonce, setJumpNonce] = useState(0)
   const [ragSettings, setRagSettings] = useState<RagSettings>({ k: 8, answerStyle: "detailed", temperature: 0.3 })
   const [compareMode, setCompareMode] = useState(false)
   const [compareDocA, setCompareDocA] = useState<PaperDocument | null>(null)
@@ -306,7 +307,7 @@ export default function Page() {
   }
 
   const handlePageJump = (page: number) => {
-    setHighlightPage(page); setTimeout(() => setHighlightPage(null), 2800)
+    setHighlightPage(page); setJumpNonce(n => n + 1); setTimeout(() => setHighlightPage(null), 2800)
   }
 
   const handleToggleCompare = () => {
@@ -362,7 +363,7 @@ export default function Page() {
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <LeftPanel documents={documents} queryHistory={queryHistory} activeDoc={activeDoc} onNewSession={handleNewSession} onSelectDoc={handleSelectDoc} onUpload={handleUpload} isUploading={isUploading} uploadProgress={uploadProgress} compareMode={compareMode} compareDocA={compareDocA} compareDocB={compareDocB} onToggleCompare={handleToggleCompare} />
-        <MiddlePanel activeDoc={activeDoc} evidenceSources={evidenceSources} highlightPage={highlightPage} onPageJump={handlePageJump} ragSettings={ragSettings} onRagSettingsChange={setRagSettings} compareMode={compareMode} compareDocA={compareDocA} compareDocB={compareDocB} hoveredSourcePage={hoveredSourcePage} />
+        <MiddlePanel activeDoc={activeDoc} evidenceSources={evidenceSources} highlightPage={highlightPage} jumpNonce={jumpNonce} onPageJump={handlePageJump} ragSettings={ragSettings} onRagSettingsChange={setRagSettings} compareMode={compareMode} compareDocA={compareDocA} compareDocB={compareDocB} hoveredSourcePage={hoveredSourcePage} />
         <RightPanel messages={messages} isThinking={isThinking} thinkingStage={thinkingStage} activeDoc={activeDoc} onSend={handleSend} onUpload={handleUpload} onPageJump={handlePageJump} compareMode={compareMode} compareDocA={compareDocA} compareDocB={compareDocB} onDecompose={handleDecompose} onSourceHover={setHoveredSourcePage} />
       </div>
     </div>

@@ -34,6 +34,7 @@ print("Models ready.")
 indexes: dict = {}
 stores: dict = {}
 bm25s: dict = {}
+doc_meta: dict = {}
 chunks_store = []
 index = None
 
@@ -174,6 +175,32 @@ def rerank_chunks(question: str, candidate_indices: list, store: list, top_n: in
     return [idx for idx, _ in top], [float(s) for _, s in top]
 
 
+META_QUESTION_PHRASES = [
+    "this paper", "the paper", "this work", "the work", "this study", "the study",
+    "the authors", "advantages", "contributions", "novelty", "limitations",
+    "summary", "summarize", "main idea", "key findings", "conclusion", "methodology",
+]
+
+def is_meta_question(question: str) -> bool:
+    q_lower = question.lower()
+    q_squeezed = re.sub(r"[^a-z0-9]", "", q_lower)  # tolerates missing spaces, e.g. "thispaper"
+    for phrase in META_QUESTION_PHRASES:
+        if phrase in q_lower or phrase.replace(" ", "") in q_squeezed:
+            return True
+    return False
+
+
+def build_meta_expanded_query(question: str, doc_id: str) -> str:
+    # Document-level meta-questions ("what are this paper's contributions") embed
+    # poorly against individual passage chunks — nothing reads like a meta-answer.
+    # Grounding the retrieval query in the paper's own title/abstract vocabulary
+    # gives FAISS/BM25 something concrete to match against.
+    meta = doc_meta.get(doc_id, {})
+    title = meta.get("title", "")
+    opening = meta.get("opening_text", "")
+    return f"{question} {title} {opening}".strip()
+
+
 class Query(BaseModel):
     question: str
     doc_id: Optional[str] = None
@@ -194,6 +221,7 @@ class CompareQuery(BaseModel):
 class SuggestQuery(BaseModel):
     question: str
     confidence_reason: str
+    doc_id: Optional[str] = None
 
 
 @app.post("/upload")
@@ -214,6 +242,13 @@ async def upload_pdf(file: UploadFile = File(...), doc_id: str = Form(default="d
     idx.add(embeddings)
     tokenized = [t.lower().split() for t in texts]
     bm25_index = BM25Okapi(tokenized)
+    first_page = pages_text[0] if pages_text else ""
+    first_lines = [l.strip() for l in first_page.split("\n") if l.strip()]
+    doc_meta[doc_id] = {
+        "title": first_lines[0] if first_lines else (file.filename or doc_id),
+        "opening_text": first_page[:300],
+    }
+
     indexes[doc_id] = idx
     stores[doc_id] = chunks
     bm25s[doc_id] = bm25_index
@@ -254,16 +289,22 @@ async def ask(q: Query):
     print(f"QUESTION [{doc_id}]: {q.question} | k={q.k} | style={q.answer_style}")
     k = min(q.k or 8, len(store))
 
+    is_meta = is_meta_question(q.question)
+    retrieval_query = build_meta_expanded_query(q.question, doc_id) if is_meta else q.question
+
     t_retrieval_start = time.time()
     if bm25:
-        candidate_indices, avg_distance = hybrid_retrieve(q.question, idx, store, bm25, k=k * 2)
+        candidate_indices, avg_distance = hybrid_retrieve(retrieval_query, idx, store, bm25, k=k * 2)
     else:
-        query_embedding = np.array(model.encode([q.question]))
+        query_embedding = np.array(model.encode([retrieval_query]))
         D, I = idx.search(query_embedding, k=k)
         candidate_indices = [int(i) for i in I[0] if i >= 0]
         valid_dists = [float(D[0][j]) for j in range(len(I[0])) if I[0][j] >= 0]
         avg_distance = float(np.mean(valid_dists)) if valid_dists else 999.0
     t_retrieval_ms = round((time.time() - t_retrieval_start) * 1000)
+
+    if is_meta:
+        print(f"META-EXPANSION: query='{q.question}' | avg_distance={avg_distance:.3f}")
 
     if not candidate_indices:
         return {"answer": "I couldn't find relevant information.", "sources": [], "confidence": "low", "confidence_reason": "No candidates retrieved", "retrieval_ms": t_retrieval_ms, "rerank_ms": 0, "chunks_used": 0}
@@ -282,7 +323,7 @@ async def ask(q: Query):
 # Tier 3 guardrail: if retrieval confidence is very weak, the question is likely
     # off-topic (nothing in the paper matches it). Redirect instead of answering.
     OFF_TOPIC_DISTANCE_THRESHOLD = 1.8  # tune: higher = more permissive
-    if avg_distance > OFF_TOPIC_DISTANCE_THRESHOLD:
+    if avg_distance > OFF_TOPIC_DISTANCE_THRESHOLD and not is_meta:
         print(f"GUARDRAIL: avg_distance={avg_distance:.3f} > {OFF_TOPIC_DISTANCE_THRESHOLD} — likely off-topic, redirecting")
         return {
             "answer": "I'm ScholarLens — I can only help with questions about the paper you've uploaded. Try asking about its methods, results, or key contributions.",
@@ -369,15 +410,23 @@ Question: {q.question}"""
 
 @app.post("/suggest")
 async def suggest_queries(q: SuggestQuery):
+    context_hint = ""
+    doc_id = q.doc_id or "default"
+    if doc_id in stores:
+        store = stores[doc_id]
+        title = doc_meta.get(doc_id, {}).get("title", "")
+        sample_terms = "\n".join(store[i]["text"][:160] for i in range(min(3, len(store))))
+        context_hint = f"\n\nThe document is titled \"{title}\". Sample passages from it:\n{sample_terms}\n"
+
     prompt = f"""A user asked this question to a RAG system for an academic paper:
 "{q.question}"
 
 The system returned low confidence because: {q.confidence_reason}
-
+{context_hint}
 Generate exactly 3 alternative phrasings that would retrieve better results. Make them:
+- CONTENT-SPECIFIC: name actual concepts, methods, models, or terms the paper likely covers (e.g. "How does BERT's masked language modeling objective work?"), not another meta-question about "the paper" or "the authors" in general
 - More specific and academic
 - Target different sections (methodology, contributions, results, limitations)
-- Reframe the original intent in a way more likely to match document content
 
 Return ONLY a JSON array of exactly 3 strings. No explanation, no markdown, no extra text.
 Example: ["question 1", "question 2", "question 3"]"""
