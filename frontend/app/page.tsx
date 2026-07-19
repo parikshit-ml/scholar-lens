@@ -36,7 +36,7 @@ function useCountUp(target: number, decimals = 0) {
 
 function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.9, delay, ease: [0.2, 0.7, 0.2, 1] }}>
+    <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.1 }} transition={{ duration: 0.9, delay, ease: [0.2, 0.7, 0.2, 1] }}>
       {children}
     </motion.div>
   )
@@ -51,7 +51,7 @@ export default function Landing() {
   const peekOpacity = useTransform(finaleProgress, [0.3, 1], [0, 1])
 
   return (
-    <div style={{ background: ink, color: text, fontFamily: sans, overflowX: "hidden", position: "relative" }}>
+    <div style={{ background: ink, color: text, fontFamily: sans, overflowX: "clip", position: "relative" }}>
       <motion.div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 2, background: teal, transformOrigin: "0%", scaleX: scrollYProgress, zIndex: 100 }} />
        <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>        <Bloom size={540} color="#1D9E75" top={-160} left={-100} delay={0} op={0.18} />
         <Bloom size={420} color="#0F6E56" bottom={-140} right={-80} delay={-7} op={0.16} />

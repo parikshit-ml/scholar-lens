@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  devIndicators: false,
   webpack: (config) => {
     config.resolve.alias.canvas = false
     config.resolve.alias.encoding = false
