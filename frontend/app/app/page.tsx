@@ -1,9 +1,56 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import { LeftPanel } from "@/components/left-panel"
 import { MiddlePanel } from "@/components/middle-panel"
 import { RightPanel } from "@/components/right-panel"
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  )
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)")
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener("change", update)
+    return () => mq.removeEventListener("change", update)
+  }, [])
+  return isMobile
+}
+
+function MobileNotice({ onContinueAnyway }: { onContinueAnyway: () => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", height: "100vh", padding: "40px 28px", background: "#F6F1E7", fontFamily: "var(--font-sans)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
+        <div style={{ width: 32, height: 32, background: "#FAF6EC", border: "1px solid #E0D9CA", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" stroke="#0F6E56" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <span style={{ fontSize: 20, fontWeight: 500, color: "#2C2820", letterSpacing: "-0.01em", fontFamily: "var(--font-serif)" }}>ScholarLens</span>
+      </div>
+      <p style={{ fontSize: 15, color: "#6B6457", maxWidth: "36ch", lineHeight: 1.6, marginBottom: 32 }}>
+        ScholarLens is a desktop research workspace — the full document, chat, and evidence panels need a bigger screen.
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 280 }}>
+        <Link
+          href="/"
+          style={{ background: "#0F6E56", color: "#FAF6EC", fontSize: 14, fontWeight: 500, padding: "13px 20px", borderRadius: 9, textDecoration: "none", textAlign: "center" }}
+        >
+          See how it works
+        </Link>
+        <button
+          onClick={onContinueAnyway}
+          style={{ background: "transparent", color: "#2C2820", fontSize: 14, fontWeight: 500, padding: "13px 20px", borderRadius: 9, border: "1px solid #E0D9CA", cursor: "pointer" }}
+        >
+          Continue anyway
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export type PaperDocument = {
   id: string
@@ -120,6 +167,8 @@ export default function Page() {
   const [compareDocA, setCompareDocA] = useState<PaperDocument | null>(null)
   const [compareDocB, setCompareDocB] = useState<PaperDocument | null>(null)
   const [hoveredSourcePage, setHoveredSourcePage] = useState<number | null>(null)
+  const isMobile = useIsMobile()
+  const [continueAnyway, setContinueAnyway] = useState(false)
 
   const handleUpload = async (file: File) => {
     setIsUploading(true); setUploadProgress(0)
@@ -267,6 +316,10 @@ export default function Page() {
     } else {
       setCompareMode(true); setCompareDocA(activeDoc); setCompareDocB(null)
     }
+  }
+
+  if (isMobile && !continueAnyway) {
+    return <MobileNotice onContinueAnyway={() => setContinueAnyway(true)} />
   }
 
   return (

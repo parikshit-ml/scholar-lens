@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Html } from "@react-three/drei"
 import * as THREE from "three"
@@ -66,6 +66,25 @@ const WORLD_UP = new THREE.Vector3(0, 1, 0)
 // the frustum's half-width/half-height at the station's distance).
 const FRAME_OFFSET_X = 0.32
 const FRAME_OFFSET_Y = 0.14
+// On mobile there's no room for a right-third composition — frame the
+// station dead-center horizontally and push it into the upper half instead,
+// since the stage text now docks to the bottom of the viewport there.
+const FRAME_OFFSET_X_MOBILE = 0
+const FRAME_OFFSET_Y_MOBILE = -0.22
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  )
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)")
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener("change", update)
+    return () => mq.removeEventListener("change", update)
+  }, [])
+  return isMobile
+}
 
 // Authored S-curve: start high and wide, bank left around cluster 1, dip
 // through the gap between clusters 2-3, rise slightly, descend to the target.
@@ -559,10 +578,12 @@ function CameraRig({
   pRef,
   stations,
   onStationProjected,
+  isMobile,
 }: {
   pRef: React.MutableRefObject<number>
   stations: Stations
   onStationProjected?: (x: number, y: number, visible: boolean) => void
+  isMobile: boolean
 }) {
   const { camera, gl } = useThree()
   const curve = useMemo(
@@ -628,10 +649,12 @@ function CameraRig({
     const halfHeight = distance * Math.tan(vFov / 2)
     const halfWidth = halfHeight * persp.aspect
 
+    const frameOffsetX = isMobile ? FRAME_OFFSET_X_MOBILE : FRAME_OFFSET_X
+    const frameOffsetY = isMobile ? FRAME_OFFSET_Y_MOBILE : FRAME_OFFSET_Y
     lookAtOut.current
       .copy(rawStation.current)
-      .addScaledVector(rightVec.current, -FRAME_OFFSET_X * halfWidth)
-      .addScaledVector(upVec.current, -FRAME_OFFSET_Y * halfHeight)
+      .addScaledVector(rightVec.current, -frameOffsetX * halfWidth)
+      .addScaledVector(upVec.current, -frameOffsetY * halfHeight)
 
     camera.lookAt(lookAtOut.current)
 
@@ -668,7 +691,7 @@ function CameraRig({
   return null
 }
 
-function StoryLayer({ pRef, setup }: { pRef: React.MutableRefObject<number>; setup: StorySetup }) {
+function StoryLayer({ pRef, setup, isMobile }: { pRef: React.MutableRefObject<number>; setup: StorySetup; isMobile: boolean }) {
   const glowCanvas = useGlowCanvas()
 
   const livePositions = useRef(new Float32Array(setup.originalPositions))
@@ -882,12 +905,12 @@ function StoryLayer({ pRef, setup }: { pRef: React.MutableRefObject<number>; set
             ref={(el) => { survivorGroupRefs.current[s] = el }}
             position={[setup.originalPositions[s * 3], setup.originalPositions[s * 3 + 1], setup.originalPositions[s * 3 + 2]]}
           >
-            <Html occlude={false} center={false}>
+            <Html occlude={false} center={false} zIndexRange={[40, 0]}>
               <span
                 ref={(el) => { labelElRefs.current[s] = el }}
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 11,
+                  fontSize: isMobile ? 10 : 11,
                   color: "#2DD4A7",
                   background: "rgba(10,10,15,0.85)",
                   border: "1px solid rgba(45,212,167,0.5)",
@@ -932,9 +955,11 @@ function SceneFog({ pRef }: { pRef: React.MutableRefObject<number> }) {
 function Scene({
   progress,
   onStationProjected,
+  isMobile,
 }: {
   progress: MotionValue<number>
   onStationProjected?: (x: number, y: number, visible: boolean) => void
+  isMobile: boolean
 }) {
   // `progress` is already the shared, damped (1 - exp(-9 * delta)) value
   // computed once in EmbeddingSection — read it directly here so the camera
@@ -952,10 +977,10 @@ function Scene({
     <>
       <SceneFog pRef={smoothedP} />
       <DriftingCloud dust={galaxy.dust} teal={galaxy.teal} cream={galaxy.cream} pRef={smoothedP} />
-      <NearDust pRef={smoothedP} />
+      {!isMobile && <NearDust pRef={smoothedP} />}
       <GridConstellation pRef={smoothedP} station2={stations.station2} />
-      <CameraRig pRef={smoothedP} stations={stations} onStationProjected={onStationProjected} />
-      <StoryLayer pRef={smoothedP} setup={setup} />
+      <CameraRig pRef={smoothedP} stations={stations} onStationProjected={onStationProjected} isMobile={isMobile} />
+      <StoryLayer pRef={smoothedP} setup={setup} isMobile={isMobile} />
     </>
   )
 }
@@ -967,14 +992,15 @@ export default function EmbeddingSpace({
   progress: MotionValue<number>
   onStationProjected?: (x: number, y: number, visible: boolean) => void
 }) {
+  const isMobile = useIsMobile()
   return (
     <Canvas
       camera={{ position: [0, 0, 14], fov: 50 }}
-      dpr={[1, 1.5]}
+      dpr={isMobile ? [1, 1.2] : [1, 1.5]}
       gl={{ antialias: true, alpha: true }}
       style={{ background: "transparent" }}
     >
-      <Scene progress={progress} onStationProjected={onStationProjected} />
+      <Scene progress={progress} onStationProjected={onStationProjected} isMobile={isMobile} />
     </Canvas>
   )
 }

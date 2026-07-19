@@ -271,9 +271,31 @@ export default function EmbeddingSection() {
         <div
           ref={titleMeasureRef}
           aria-hidden
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-[calc(100%-2rem)] lg:left-16 lg:w-[44%]"
+          className="absolute left-4 right-4 bottom-[max(24px,env(safe-area-inset-bottom))] md:right-auto md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:w-[calc(100%-2rem)] lg:left-16 lg:w-[44%]"
           style={{ visibility: "hidden", pointerEvents: "none" }}
         />
+
+        {/* Mobile only: the stage text docks to the bottom of the viewport
+            there (see StageText), so it needs a scrim behind it to stay
+            readable over the busy 3D scene — sits above the canvas but below
+            the text layer's z-index. */}
+        {activeStage >= 0 && (
+          <motion.div
+            className="md:hidden"
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: "45%",
+              zIndex: 1,
+              background: "linear-gradient(transparent, rgba(10,10,15,0.75))",
+              opacity: stageLayerOpacity,
+              visibility: stageLayerVisibility,
+              pointerEvents: "none",
+            }}
+          />
+        )}
 
         {/* Establishing beat (0-0.16) belongs to the heading alone — no stage
             text, ghost numeral, or leader line until activeStage leaves -1.
@@ -420,7 +442,7 @@ function StageText({ activeStage, reduceMotion }: { activeStage: number; reduceM
 
   return (
     <div
-      className="absolute left-4 top-1/2 -translate-y-1/2 w-[calc(100%-2rem)] lg:left-16 lg:w-[44%]"
+      className="absolute left-4 right-4 bottom-[max(24px,env(safe-area-inset-bottom))] md:right-auto md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:w-[calc(100%-2rem)] lg:left-16 lg:w-[44%]"
       style={{ zIndex: 2, pointerEvents: "none" }}
     >
       <div style={{ position: "relative" }}>
@@ -434,6 +456,7 @@ function StageText({ activeStage, reduceMotion }: { activeStage: number; reduceM
           >
             <motion.div
               aria-hidden
+              className="hidden md:block"
               variants={reduceMotion ? ghostVariantsReduced : ghostVariants}
               style={{
                 position: "absolute",
