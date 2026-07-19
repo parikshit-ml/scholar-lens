@@ -10,7 +10,7 @@
 
 > Upload a research paper. Ask questions. Get answers that are **grounded in the source**, with full retrieval provenance showing *why* each chunk was selected.
 
-**[🚀 Try it live](https://try-scholarlens.vercel.app)** — *Note: the backend runs on Hugging Face Spaces free tier, so the first request after inactivity takes ~1–2 minutes to cold-start.*
+**[🚀 Try it live](https://try-scholarlens.vercel.app)** — *Notes: the backend runs on Hugging Face Spaces free tier, so the first request after inactivity takes ~1–2 minutes to cold-start. The research workspace is desktop-first; a responsive mobile layout is on the roadmap.*
 
 ---
 
@@ -22,7 +22,20 @@ Most RAG demos stop at "chunk → embed → retrieve → generate." ScholarLens 
 - **Which candidates actually matter?** → Cross-encoder reranking on top of first-stage retrieval
 - **Is the answer actually supported by the paper?** → LLM-based grounding verification
 - **Can we prove it?** → Per-chunk retrieval provenance (FAISS rank, BM25 rank, reranker delta, selection reason)
-- **Does it know what it doesn't know?** → Confidence gating that refuses out-of-scope questions instead of hallucinating
+- **Does it know what it doesn't know?** → Three-tier scope guardrails that refuse or redirect out-of-scope questions instead of hallucinating
+
+---
+
+## The Landing Experience
+
+The landing page doesn't *describe* the retrieval pipeline — it flies you through it. A scroll-driven **3D embedding-space scene** (Three.js / React Three Fiber) renders the document corpus as a particle galaxy and turns the pipeline into a cinematic journey:
+
+- A query point ignites and **retrieval rays** draw out to its nearest neighbors (dense search), while lexical candidates flare and fuse in (BM25 + Reciprocal Rank Fusion)
+- Scattered chunks snap into an ordered **grid constellation** (semantic chunking)
+- Candidates are **culled one by one** as the cross-encoder re-scores them, survivors carrying live relevance chips
+- The camera dives into the winning passage, which resolves into a **cream, fully-cited answer card**
+
+Under the hood: an authored Catmull-Rom camera path with per-station framing, threshold-triggered (not scrubbed) text transitions with blur-into-focus reveals, per-stage mood tints, custom GLSL point shaders with additive blending, and a `prefers-reduced-motion` fallback. Scroll scenery is scrubbed; readable text is triggered — so copy is always crisp wherever you stop.
 
 ---
 
@@ -53,6 +66,7 @@ Most RAG demos stop at "chunk → embed → retrieve → generate." ScholarLens 
                                                           ▼
                                   Confidence gate (avg distance threshold)
                                    │ low confidence → scoped refusal
+                                   │ off-topic distance → guided redirect
                                    ▼
                           ┌──────────────────────────────────────┐
                           │            GENERATION                │
@@ -80,8 +94,20 @@ Every retrieved chunk carries its full audit trail: FAISS rank, BM25 rank, reran
 ### ✅ Grounding Verification
 A dedicated verification pass checks whether the generated answer is actually supported by the retrieved context (paraphrase-aware, evaluated against up to 6,000 characters of source context) — flagging answers that drift from the paper.
 
-### 🚧 Scope Guardrails
-Two-tier defense against off-topic hallucination: a prompt-level refusal instruction, plus a **retrieval confidence gate** — if average retrieval distance exceeds threshold, the system declines to answer rather than guessing.
+### 🚧 Three-Tier Scope Guardrails
+Layered defense against off-topic hallucination: a prompt-level refusal instruction, a **retrieval confidence gate** (weak retrieval → scoped refusal), and an **off-topic distance guardrail** — when average retrieval distance shows the question is unrelated to the document, the system redirects the user toward the paper's actual content instead of guessing.
+
+### 📚 Multi-Document Comparison
+Ask one question across two papers and get answers side by side — same pipeline, run per document, presented for direct comparison.
+
+### 🧩 Paper Decomposition
+Four parallel queries split a paper into its contributions, methods, limitations, and assumptions — a structured first read of any new paper.
+
+### 💡 Dynamic Query Suggestions
+When retrieval confidence is low, the system proposes better-targeted questions instead of leaving you guessing what to ask.
+
+### ⚡ Query Caching
+Repeated questions return instantly from a TTL cache — no re-retrieval, no re-generation, no repeated API cost.
 
 ### 📊 Built-in Evaluation Harness
 An `/evaluate` endpoint and dedicated eval panel run benchmark question sets against uploaded papers, measuring retrieval accuracy, answer similarity, and grounding rate.
@@ -94,9 +120,9 @@ Benchmarked on **60 questions across 5 papers** (Attention Is All You Need, DPR,
 
 | Metric | Result |
 |---|---|
-| Retrieval accuracy | **93%** |
-| Average answer similarity | **0.74** |
-| Grounding rate | **82%** |
+| Retrieval accuracy | **93.3%** |
+| Average answer similarity | **0.74** (cosine vs. expected answers; 1.0 = verbatim) |
+| Grounding rate | **81.7%** (49 of 60 answers verified faithful to sources) |
 
 *All metrics from the built-in evaluation harness — reproducible via the eval panel.*
 
@@ -114,7 +140,8 @@ Benchmarked on **60 questions across 5 papers** (Attention Is All You Need, DPR,
 | **Reranker** | `ms-marco-MiniLM-L-6-v2` (cross-encoder) |
 | **LLM** | `gpt-4o-mini` (OpenAI API) |
 | **PDF parsing** | PyPDF2 + custom text cleaning |
-| **Frontend** | Next.js 15, React 19, TypeScript, shadcn/ui |
+| **Frontend** | Next.js 15, React 19, TypeScript, Tailwind CSS, shadcn/ui |
+| **3D & motion** | Three.js, React Three Fiber, drei, custom GLSL shaders, Framer Motion |
 | **Deployment** | Hugging Face Spaces (backend) · Vercel (frontend) |
 
 ---
@@ -158,12 +185,14 @@ npm run dev
 ```
 scholar-lens/
 ├── backend/
-│   ├── main.py            # FastAPI app: ingestion, retrieval, generation, /evaluate
+│   ├── main.py            # FastAPI app: ingestion, retrieval, generation, guardrails, /evaluate
 │   ├── requirements.txt
 │   └── .env               # OPENAI_API_KEY (never committed)
 ├── frontend/
-│   ├── app/               # Next.js app router, three-panel interface
-│   ├── components/        # left / middle / right / eval panels (shadcn/ui)
+│   ├── app/               # Next.js app router: landing + three-panel workspace
+│   ├── components/
+│   │   ├── landing/       # 3D embedding-space scene (R3F) + scroll choreography
+│   │   └── ...            # left / middle / right / eval panels (shadcn/ui)
 │   └── ...
 └── README.md
 ```
@@ -172,8 +201,8 @@ scholar-lens/
 
 ## Roadmap
 
+- [ ] Responsive mobile layout for the research workspace (tabbed document / chat / evidence)
 - [ ] Automatic query reformulation on low-confidence retrieval
-- [ ] Multi-paper cross-document Q&A
 - [ ] Swappable vector store backends (ChromaDB, pgvector)
 - [ ] Streaming responses
 
