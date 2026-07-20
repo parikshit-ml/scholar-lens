@@ -29,8 +29,8 @@ type Step = { n: string; title: string; desc: string; metric: string; start: num
 const STEPS: Step[] = [
   { n: "01", title: "Hybrid retrieval", desc: "FAISS dense vectors + BM25 keyword, fused with Reciprocal Rank Fusion", metric: "~240ms", start: 0.16, end: 0.36 },
   { n: "02", title: "Semantic chunking", desc: "Heading-aware segmentation with automatic fallback to fixed windows", metric: "adaptive", start: 0.36, end: 0.56 },
-  { n: "03", title: "Cross-encoder re-ranking", desc: "An ms-marco cross-encoder re-scores every candidate — the relevance scores you see are its verdicts.", metric: "~110ms", start: 0.56, end: 0.78 },
-  { n: "04", title: "Grounded synthesis", desc: "Composed only from top-tier evidence — every claim cited to a page", metric: "page-level", start: 0.74, end: 0.86 },
+  { n: "03", title: "Cross-encoder re-ranking", desc: "An ms-marco cross-encoder re-scores every candidate — the relevance scores you see are its verdicts.", metric: "~110ms", start: 0.56, end: 0.72 },
+  { n: "04", title: "Grounded synthesis", desc: "Composed only from top-tier evidence — every claim cited to a page", metric: "page-level", start: 0.72, end: 0.90 },
 ]
 
 // Threshold-triggered stage detection: each stage's own start doubles as the
@@ -62,7 +62,7 @@ const TINT_STAGES: { start: number; end: number; color: string }[] = [
   { start: 0, end: 0.3, color: "#0F6E56" },
   { start: 0.25, end: 0.55, color: "#12708A" },
   { start: 0.5, end: 0.85, color: "#8A5A2E" },
-  { start: 0.8, end: 1.0, color: "#D9CBAE" },
+  { start: 0.84, end: 1.0, color: "#D9CBAE" },
 ]
 
 export default function EmbeddingSection() {
@@ -199,18 +199,18 @@ export default function EmbeddingSection() {
   const headingVisibility = useTransform(headingOpacity, (v) => (v < 0.01 ? "hidden" : "visible"))
   // Payoff quiet-down: the scene dims further (to 0.18, not just 0.25) and the
   // vignette deepens slightly so the cream card reads as the clear focus.
-  const sceneDim = useTransform(smoothProgress, [0.88, 1], [1, 0.18])
+  const sceneDim = useTransform(smoothProgress, [0.92, 1], [1, 0.18])
   // The vignette fades IN with the journey (starting at 0, not already at
   // 0.35) so the section's top region matches the hero exactly at the seam.
-  const vignetteAlpha = useTransform(smoothProgress, [0, 0.08, 0.88, 1], [0, 0.35, 0.35, 0.5])
+  const vignetteAlpha = useTransform(smoothProgress, [0, 0.08, 0.92, 1], [0, 0.35, 0.35, 0.5])
   const vignetteBackground = useMotionTemplate`radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,${vignetteAlpha}) 100%)`
-  const payoffOpacity = useTransform(smoothProgress, [0.88, 1], [0, 1])
+  const payoffOpacity = useTransform(smoothProgress, [0.92, 1], [0, 1])
   const payoffVisibility = useTransform(payoffOpacity, (v) => (v < 0.01 ? "hidden" : "visible"))
-  const payoffScale = useTransform(smoothProgress, [0.88, 1], [0.94, 1])
+  const payoffScale = useTransform(smoothProgress, [0.92, 1], [0.94, 1])
   // The entire stage-text layer (title block, ghost numeral, leader line —
   // everything inside the activeStage>=0 block below) fades out just before
   // the payoff card takes over, and reappears if the user scrolls back up.
-  const stageLayerOpacity = useTransform(smoothProgress, [0.86, 0.89], [1, 0])
+  const stageLayerOpacity = useTransform(smoothProgress, [0.89, 0.92], [1, 0])
   const stageLayerVisibility = useTransform(stageLayerOpacity, (v) => (v < 0.01 ? "hidden" : "visible"))
 
   if (reduceMotion) {
@@ -299,7 +299,7 @@ export default function EmbeddingSection() {
 
         {/* Establishing beat (0-0.16) belongs to the heading alone — no stage
             text, ghost numeral, or leader line until activeStage leaves -1.
-            The whole layer also fades out just before the payoff (0.86-0.89)
+            The whole layer also fades out just before the payoff (0.89-0.92)
             and hides so it never overlaps the cream card. */}
         {activeStage >= 0 && (
           <motion.div style={{ opacity: stageLayerOpacity, visibility: stageLayerVisibility }}>

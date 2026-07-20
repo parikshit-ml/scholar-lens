@@ -100,7 +100,7 @@ const CAMERA_PATH_POINTS: [number, number, number][] = [
 
 // Maps journey progress to the camera curve's own parameter (t) so the
 // camera physically arrives at each station right as its stage text
-// activates (0.16/0.36/0.56/0.74), holding the final approach through the
+// activates (0.16/0.36/0.56/0.72), holding the final approach through the
 // payoff. The curve's shape (CAMERA_PATH_POINTS) is untouched — only the
 // pacing of how we travel along it changes.
 const CAMERA_T_BREAKPOINTS: { p: number; t: number }[] = [
@@ -108,8 +108,8 @@ const CAMERA_T_BREAKPOINTS: { p: number; t: number }[] = [
   { p: 0.16, t: 0.17 },
   { p: 0.36, t: 0.33 },
   { p: 0.56, t: 0.5 },
-  { p: 0.74, t: 0.67 },
-  { p: 0.88, t: 1.0 },
+  { p: 0.72, t: 0.67 },
+  { p: 0.92, t: 1.0 },
   { p: 1.0, t: 1.0 },
 ]
 
@@ -169,7 +169,7 @@ const TINT_STAGES = [
   { start: 0, end: 0.3, color: new THREE.Color("#0F6E56") },
   { start: 0.25, end: 0.55, color: new THREE.Color("#12708A") },
   { start: 0.5, end: 0.85, color: new THREE.Color("#8A5A2E") },
-  { start: 0.8, end: 1.0, color: new THREE.Color("#D9CBAE") },
+  { start: 0.84, end: 1.0, color: new THREE.Color("#D9CBAE") },
 ]
 
 function stageWeight(p: number, start: number, end: number) {
@@ -496,7 +496,7 @@ function NearDust({ pRef }: { pRef: React.MutableRefObject<number> }) {
     timeUniform.current.value = state.clock.elapsedTime
     // Fade out entirely within the final payoff window so it never competes
     // with the cream card.
-    const fadeOut = clamp((pRef.current - 0.85) / 0.15, 0, 1)
+    const fadeOut = clamp((pRef.current - 0.89) / 0.15, 0, 1)
     alphaUniform.current.value = 0.15 * (1 - fadeOut)
   })
 
@@ -607,7 +607,7 @@ function CameraRig({
       { p: 0.36, point: stations.station2 },
       { p: 0.56 - T, point: stations.station2 },
       { p: 0.56, point: stations.station3 },
-      { p: 0.74, point: stations.station4 },
+      { p: 0.72, point: stations.station4 },
     ]
   }, [stations])
 
@@ -752,14 +752,14 @@ function StoryLayer({ pRef, setup, isMobile }: { pRef: React.MutableRefObject<nu
         tmpColor.current.lerp(WHITE, 0.15 * brightenT)
 
         if (i < 3) {
-          // Survivors: drift toward the query cluster (stage 04 content, p 0.74-0.86).
-          const driftT = clamp((p - 0.74) / 0.12, 0, 1)
+          // Survivors: drift toward the query cluster (stage 04 content, p 0.72-0.90).
+          const driftT = clamp((p - 0.72) / 0.14, 0, 1)
           const target = setup.survivorTargets[i]
           x = ox + (target.x - ox) * driftT
           y = oy + (target.y - oy) * driftT
           z = oz + (target.z - oz) * driftT
         } else {
-          // Reranking cull, p 0.56-0.78.
+          // Reranking cull, p 0.56-0.72.
           const dimStart = 0.56 + (setup.nonSurvivorSlot[i] / 14) * 0.17
           const dimT = clamp((p - dimStart) / 0.05, 0, 1)
           tmpColor.current.lerp(MUTED, dimT)
@@ -775,7 +775,7 @@ function StoryLayer({ pRef, setup, isMobile }: { pRef: React.MutableRefObject<nu
         y = oy + (target.y - oy) * joinT
         z = oz + (target.z - oz) * joinT
 
-        // Reranking cull, p 0.56-0.78.
+        // Reranking cull, p 0.56-0.72.
         const dimStart = 0.56 + (setup.nonSurvivorSlot[i] / 14) * 0.17
         const dimT = clamp((p - dimStart) / 0.05, 0, 1)
         tmpColor.current.lerp(MUTED, dimT)
@@ -806,7 +806,7 @@ function StoryLayer({ pRef, setup, isMobile }: { pRef: React.MutableRefObject<nu
     // dragging out across the whole 0.16-0.36 window — then fade to nothing
     // during the payoff quiet-down (fully gone by p=0.9).
     const drawT = clamp((p - 0.16) / 0.07, 0, 1)
-    const lineFade = 1 - clamp((p - 0.85) / 0.05, 0, 1)
+    const lineFade = 1 - clamp((p - 0.89) / 0.05, 0, 1)
     for (let i = 0; i < 12; i++) {
       const lineGeom = lineGeomRefs.current[i]
       if (lineGeom) {
@@ -827,16 +827,16 @@ function StoryLayer({ pRef, setup, isMobile }: { pRef: React.MutableRefObject<nu
       if (grp) grp.position.set(positions[s * 3], positions[s * 3 + 1], positions[s * 3 + 2])
     }
 
-    // Score labels: visible across the 0.56-0.78 reranking window, fully
-    // faded out by 0.84 — clear of the payoff card's 0.88 entrance.
+    // Score labels: visible across the 0.56-0.74 reranking window, fully
+    // faded out by 0.80 — clear of the payoff card's 0.92 entrance.
     const labelFadeIn = clamp((p - 0.56) / 0.05, 0, 1)
-    const labelFadeOut = clamp((p - 0.78) / 0.06, 0, 1)
+    const labelFadeOut = clamp((p - 0.74) / 0.06, 0, 1)
     const labelOpacity = labelFadeIn * (1 - labelFadeOut)
     for (const el of labelElRefs.current) {
       if (el) el.style.opacity = String(labelOpacity)
     }
 
-    const shouldShow = p > 0.56 && p < 0.84
+    const shouldShow = p > 0.56 && p < 0.80
     if (shouldShow !== labelsVisibleRef.current) {
       labelsVisibleRef.current = shouldShow
       setShowLabels(shouldShow)
